@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ① 改成你的工具名稱 -->
+<title>工具名稱 — MEP 工具箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<style>
+  /* tokens.css 已提供 --bg / --accent / --panel 等變數與底色格線，
+     這裡只寫這支工具自己的版面。想讓工具能單獨下載離線使用，
+     就把 tokens.css 的內容整段複製進來、拿掉上面那行 <link>。 */
+  body{ padding:20px 14px 60px; }
+  .wrap{ max-width:920px; margin:0 auto; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .back{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:var(--mono); font-size:12px; color:var(--text-dim); text-decoration:none;
+    padding:6px 12px 6px 9px; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel-2);
+  }
+  .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  h1{ font-size:26px; margin:0 0 4px; font-weight:700; letter-spacing:-0.01em; }
+  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 22px; line-height:1.5; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .card h2{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim);
+    margin:0 0 14px; font-weight:600; display:flex; align-items:center; gap:8px;
+  }
+  .card h2::after{ content:''; flex:1; height:1px; background:var(--border); }
+
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  input[type=number], select{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    font-family:var(--mono); font-size:15px; padding:9px 10px; border-radius:8px; outline:none;
+  }
+  input:focus, select:focus{ border-color:var(--accent); }
+
+  .result-value{ font-family:var(--mono); font-size:38px; font-weight:700; color:var(--accent); line-height:1; }
+  .result-unit{ font-size:14px; color:var(--text-dim); margin-left:6px; }
+
+  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="topbar">
+    <a class="back" href="../../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      回工具箱
+    </a>
+  </nav>
+
+  <!-- ② 改成你的領域碼與工具說明 -->
+  <div class="eyebrow">MEP // 分類 ・ XXX-00</div>
+  <h1>工具名稱</h1>
+  <p class="subtitle">一句話說明這支工具解決什麼問題、適用什麼情況、有什麼前提假設。</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>已知條件</h2>
+      <div class="field">
+        <label>輸入值 A</label>
+        <input type="number" id="inA" value="10" step="1">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>輸入值 B</label>
+        <input type="number" id="inB" value="2" step="1">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>計算結果</h2>
+      <div style="text-align:center; padding:14px 0">
+        <span class="result-value" id="out">—</span><span class="result-unit">單位</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 一定要寫來源。工程計算沒有出處就不能拿去用。 -->
+  <footer class="credit">公式來源：___ ・ 假設條件：___</footer>
+</div>
+
+<script>
+// ④ 把計算邏輯寫在這裡。純函式、不碰 DOM，之後好測試也好搬。
+function calc(a, b){
+  return a * b;
+}
+
+function render(){
+  const a = parseFloat(document.getElementById('inA').value);
+  const b = parseFloat(document.getElementById('inB').value);
+  const v = calc(a, b);
+  document.getElementById('out').textContent = isFinite(v) ? v.toFixed(2) : '—';
+}
+
+document.querySelectorAll('input').forEach(el => el.addEventListener('input', render));
+render();
+</script>
+</body>
+</html>
