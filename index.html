@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEP 工具箱</title>
+<meta name="description" content="機電（MEP）工程計算工具集 — 開啟網頁即可使用，免安裝。">
+<meta property="og:title" content="MEP 工具箱">
+<meta property="og:description" content="機電工程計算工具集，開啟網頁即可使用。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230b1622'/><path d='M22 66 Q50 26 78 66' stroke='%235eead4' stroke-width='9' fill='none' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tokens.css">
+<style>
+  body{ padding:0; }
+  .page{ max-width:1000px; margin:0 auto; padding:32px 16px 72px; }
+
+  /* ── Masthead ───────────────────────────────── */
+  .masthead{
+    border-bottom:1px solid var(--border);
+    padding-bottom:22px; margin-bottom:26px;
+  }
+  .masthead .eyebrow{ margin-bottom:8px; }
+  .masthead h1{
+    font-size:clamp(28px,5vw,38px); margin:0 0 8px;
+    font-weight:700; letter-spacing:-0.02em;
+  }
+  .masthead p{
+    color:var(--text-dim); font-size:14.5px; line-height:1.6;
+    margin:0; max-width:60ch;
+  }
+  .masthead .meta{
+    display:flex; gap:18px; flex-wrap:wrap; margin-top:16px;
+    font-family:var(--mono); font-size:11.5px; color:var(--text-dimmer);
+  }
+  .masthead .meta b{ color:var(--accent); font-weight:600; }
+
+  /* ── Controls ──────────────────────────────── */
+  .controls{ margin-bottom:22px; }
+  .search-wrap{ position:relative; margin-bottom:12px; }
+  .search-wrap svg{
+    position:absolute; left:13px; top:50%; transform:translateY(-50%);
+    width:15px; height:15px; stroke:var(--text-dimmer); pointer-events:none;
+  }
+  #search{
+    width:100%; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); font-family:var(--mono); font-size:14px;
+    padding:11px 12px 11px 38px; border-radius:10px; outline:none;
+    transition:border-color .15s;
+  }
+  #search::placeholder{ color:var(--text-dimmer); }
+  #search:focus{ border-color:var(--accent); }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+    font-family:var(--mono); font-size:12px; font-weight:500;
+    padding:6px 12px; border-radius:999px; cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .chip:hover{ color:var(--text); border-color:var(--accent-dim); }
+  .chip[aria-pressed="true"]{ background:var(--accent); color:#04211d; border-color:var(--accent); }
+
+  /* ── Tool index ────────────────────────────── */
+  .index-head{
+    display:flex; align-items:center; gap:10px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--text-dim); margin:28px 0 12px;
+  }
+  .index-head::after{ content:''; flex:1; height:1px; background:var(--border); }
+  .index-head .count{ color:var(--text-dimmer); letter-spacing:0; text-transform:none; }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:14px; }
+
+  .card{
+    display:block; position:relative; overflow:hidden;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:14px; padding:18px 18px 16px;
+    text-decoration:none; color:inherit;
+    transition:border-color .18s, transform .18s, background .18s;
+  }
+  .card:hover, .card:focus-visible{
+    border-color:var(--accent); transform:translateY(-2px); background:#132539;
+  }
+  .card:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .card.is-wip{ pointer-events:none; opacity:.45; }
+
+  .card-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .code{
+    font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em;
+    color:var(--accent);
+  }
+  .status{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+    padding:3px 7px; border-radius:5px; border:1px solid;
+  }
+  .status.beta{ color:var(--amber); border-color:rgba(245,185,66,.4); }
+  .status.wip{ color:var(--text-dimmer); border-color:var(--border); }
+  .status.live{ display:none; }
+
+  .card h3{ font-size:16.5px; margin:0 0 7px; font-weight:600; letter-spacing:-0.01em; }
+  .card p{ color:var(--text-dim); font-size:13px; line-height:1.55; margin:0 0 14px; }
+
+  /* Signature: 每張卡片掛著它的統御方程式 — 工程師靠算式認工具 */
+  .formula{
+    font-family:var(--mono); font-size:12.5px; color:var(--accent);
+    background:var(--panel-2); border:1px solid var(--border);
+    border-left:2px solid var(--accent);
+    padding:9px 11px; border-radius:0 7px 7px 0; margin-bottom:13px;
+    overflow-x:auto; white-space:nowrap;
+  }
+  .card-foot{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding-top:11px; border-top:1px dashed var(--border);
+  }
+  .tags{ display:flex; flex-wrap:wrap; gap:5px; }
+  .tag{
+    font-size:10.5px; color:var(--text-dimmer); background:var(--panel-2);
+    border:1px solid var(--border); padding:2px 7px; border-radius:4px;
+  }
+  .updated{ font-family:var(--mono); font-size:10.5px; color:var(--text-dimmer); white-space:nowrap; }
+
+  /* ── Empty state ───────────────────────────── */
+  .empty{
+    border:1px dashed var(--border); border-radius:14px;
+    padding:44px 22px; text-align:center; color:var(--text-dim);
+  }
+  .empty strong{ display:block; color:var(--text); font-size:15px; margin-bottom:6px; }
+  .empty span{ font-size:13px; line-height:1.6; }
+
+  /* ── Footer ────────────────────────────────── */
+  footer{
+    margin-top:44px; padding-top:20px; border-top:1px solid var(--border);
+    display:flex; flex-wrap:wrap; gap:8px 20px; justify-content:space-between;
+    font-family:var(--mono); font-size:11px; color:var(--text-dimmer);
+  }
+  footer a{ color:var(--text-dim); text-decoration:none; border-bottom:1px solid var(--border); }
+  footer a:hover{ color:var(--accent); border-color:var(--accent); }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ transition:none !important; animation:none !important; }
+    .card:hover{ transform:none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">MEP // 工程計算工具箱</div>
+    <h1>開啟網頁就能算</h1>
+    <p>機電工程日常會用到的計算工具，全部做成網頁。不用安裝、不用登入、手機也能開，把連結傳給同事就能一起用。每支工具都是單一檔案，也可以下載下來離線跑。</p>
+    <div class="meta">
+      <span>工具數 <b id="metaCount">—</b></span>
+      <span>最後更新 <b id="metaUpdated">—</b></span>
+      <span>離線可用 <b>是</b></span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="search" placeholder="搜尋工具名稱、算式或用途…" autocomplete="off" aria-label="搜尋工具">
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="依分類篩選"></div>
+  </div>
+
+  <div class="index-head">工具索引 <span class="count" id="indexCount"></span></div>
+  <div class="cards" id="cards"></div>
+
+  <footer>
+    <span>MEP TOOLBOX</span>
+    <span><a href="https://github.com/" id="repoLink" target="_blank" rel="noopener">原始碼與新增工具說明</a></span>
+  </footer>
+
+</div>
+
+<script src="assets/tools.js"></script>
+<script>
+(function(){
+  const tools = (window.TOOLS || []).slice();
+  const cardsEl  = document.getElementById('cards');
+  const chipsEl  = document.getElementById('chips');
+  const searchEl = document.getElementById('search');
+  let activeTag = null;
+
+  // ── Meta ──
+  document.getElementById('metaCount').textContent = tools.filter(t => t.status !== 'wip').length;
+  const dates = tools.map(t => t.updated).filter(Boolean).sort();
+  document.getElementById('metaUpdated').textContent = dates.length ? dates[dates.length - 1] : '—';
+
+  // ── Tag chips ──
+  const allTags = [...new Set(tools.flatMap(t => t.tags || []))].sort();
+  function renderChips(){
+    chipsEl.innerHTML = '';
+    [['全部', null], ...allTags.map(t => [t, t])].forEach(([label, val]) => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = label;
+      b.setAttribute('aria-pressed', activeTag === val ? 'true' : 'false');
+      b.onclick = () => { activeTag = (activeTag === val) ? null : val; renderChips(); render(); };
+      chipsEl.appendChild(b);
+    });
+  }
+
+  // ── Cards ──
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function render(){
+    const q = searchEl.value.trim().toLowerCase();
+    const list = tools.filter(t => {
+      const tagOk = !activeTag || (t.tags || []).includes(activeTag);
+      const hay = [t.id, t.name, t.summary, t.formula, ...(t.tags || [])].join(' ').toLowerCase();
+      return tagOk && (!q || hay.includes(q));
+    });
+
+    document.getElementById('indexCount').textContent = `（${list.length} 項）`;
+    cardsEl.innerHTML = '';
+
+    if(!list.length){
+      cardsEl.innerHTML = `<div class="empty" style="grid-column:1/-1">
+        <strong>沒有符合的工具</strong>
+        <span>換個關鍵字，或按「全部」清掉分類篩選。<br>需要的工具還沒做？到 GitHub 開一個 Issue 說明用途與算式。</span>
+      </div>`;
+      return;
+    }
+
+    list.forEach(t => {
+      const wip = t.status === 'wip';
+      const a = document.createElement('a');
+      a.className = 'card' + (wip ? ' is-wip' : '');
+      a.href = wip ? '#' : t.path;
+      if(wip) a.setAttribute('aria-disabled', 'true');
+      a.innerHTML = `
+        <div class="card-top">
+          <span class="code">${esc(t.id)}</span>
+          <span class="status ${esc(t.status || 'live')}">${t.status === 'beta' ? 'Beta' : (wip ? '開發中' : '')}</span>
+        </div>
+        <h3>${esc(t.name)}</h3>
+        <p>${esc(t.summary)}</p>
+        ${t.formula ? `<div class="formula">${esc(t.formula)}</div>` : ''}
+        <div class="card-foot">
+          <div class="tags">${(t.tags || []).map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>
+          <span class="updated">${esc(t.updated || '')}</span>
+        </div>`;
+      cardsEl.appendChild(a);
+    });
+  }
+
+  searchEl.addEventListener('input', render);
+  renderChips();
+  render();
+
+  // 頁尾連結自動指向這個 repo（GitHub Pages 網址推得出來）
+  const m = location.hostname.match(/^([\w-]+)\.github\.io$/);
+  if(m){
+    const repo = location.pathname.split('/').filter(Boolean)[0];
+    document.getElementById('repoLink').href =
+      `https://github.com/${m[1]}/${repo || (m[1] + '.github.io')}`;
+  }
+})();
+</script>
+</body>
+</html>
