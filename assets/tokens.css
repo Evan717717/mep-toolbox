@@ -1,0 +1,55 @@
+/* ─────────────────────────────────────────────────────
+   MEP 工具箱 — 共用設計 Token
+   工具頁面若想維持「單一檔案、可離線」的特性，可以不引用這支
+   CSS，直接把下面的 :root 變數複製進自己的 <style> 裡。
+   ───────────────────────────────────────────────────── */
+
+:root{
+  /* 底色與面板 */
+  --bg:#0b1622;
+  --panel:#101f30;
+  --panel-2:#0d1a29;
+  --grid:rgba(94,234,212,0.055);   /* 藍圖格線 */
+  --border:#22384d;
+
+  /* 強調色 */
+  --accent:#5eead4;                /* 主色：青綠 */
+  --accent-dim:#2f5a54;
+  --amber:#f5b942;                 /* 注意 */
+  --good:#34d399;                  /* 通過 */
+  --bad:#f87171;                   /* 不合規 */
+
+  /* 文字 */
+  --text:#e8eef4;
+  --text-dim:#8ea0b5;
+  --text-dimmer:#5b7086;
+
+  /* 字體 */
+  --sans:'Inter', system-ui, -apple-system, 'Noto Sans TC', sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, 'Cascadia Code', monospace;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+    var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* 所有頁面共用的小眉標 */
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:0.18em;
+  color:var(--accent);
+  text-transform:uppercase;
+}
+
+/* 鍵盤操作一定要看得見焦點 */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
