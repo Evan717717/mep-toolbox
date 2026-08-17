@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manning 逕流計算機</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1622;
+    --panel:#101f30;
+    --panel-2:#0d1a29;
+    --grid:rgba(94,234,212,0.055);
+    --border-real:#22384d;
+    --accent:#5eead4;
+    --accent-dim:#2f5a54;
+    --amber:#f5b942;
+    --good:#34d399;
+    --bad:#f87171;
+    --text:#e8eef4;
+    --text-dim:#8ea0b5;
+    --text-dimmer:#5b7086;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    padding:20px 14px 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:920px; margin:0 auto; }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.18em;
+    color:var(--accent);
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  h1{
+    font-size:26px;
+    margin:0 0 4px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 22px; line-height:1.5; }
+
+  .segmented{
+    display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;
+    background:var(--panel-2); padding:5px; border-radius:12px; border:1px solid var(--border-real);
+  }
+  .seg-btn{
+    flex:1 1 auto; min-width:74px;
+    background:transparent; border:none; color:var(--text-dim);
+    font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;
+    padding:9px 8px; border-radius:8px; cursor:pointer;
+    transition:background .15s,color .15s;
+    text-align:center;
+  }
+  .seg-btn .lbl{ display:block; font-family:'Inter',sans-serif; font-weight:500; font-size:10.5px; color:var(--text-dimmer); margin-top:2px;}
+  .seg-btn.active{ background:var(--accent); color:#04211d; }
+  .seg-btn.active .lbl{ color:#0a3934; }
+  .seg-btn:hover:not(.active){ background:#152944; color:var(--text); }
+
+  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .grid2{ grid-template-columns: 1fr; } }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border-real);
+    border-radius:14px;
+    padding:18px 18px 20px;
+  }
+  .card h2{
+    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text-dim); margin:0 0 14px; font-weight:600;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h2::after{ content:''; flex:1; height:1px; background:var(--border-real); }
+
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{
+    display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500;
+  }
+  .row{ display:flex; gap:8px; align-items:center; }
+  .row .hint{ font-family:'IBM Plex Mono',monospace; color:var(--text-dimmer); font-size:12px; white-space:nowrap; }
+  input[type=number], select{
+    width:100%; background:var(--panel-2); border:1px solid var(--border-real);
+    color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:15px;
+    padding:9px 10px; border-radius:8px; outline:none;
+    transition:border-color .15s;
+  }
+  input[type=number]:focus, select:focus{ border-color:var(--accent); }
+  select{ cursor:pointer; }
+  .sub-hint{ font-size:11px; color:var(--text-dimmer); margin-top:5px; font-family:'IBM Plex Mono',monospace; }
+  .disabled-field{ opacity:0.35; pointer-events:none; }
+
+  .toggle-pair{ display:flex; gap:6px; margin-bottom:12px; }
+  .toggle-pair button{
+    flex:1; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim);
+    font-size:12.5px; font-weight:600; padding:7px; border-radius:7px; cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .toggle-pair button.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+
+  .result-hero{
+    text-align:center; padding:14px 6px 18px; border-bottom:1px dashed var(--border-real); margin-bottom:16px;
+  }
+  .result-label{ font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+  .result-value{ font-family:'IBM Plex Mono',monospace; font-size:38px; font-weight:700; color:var(--accent); line-height:1; }
+  .result-unit{ font-size:14px; color:var(--text-dim); margin-left:6px; }
+  .result-sub{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text-dimmer); margin-top:6px; }
+
+  .derived-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .derived-item{ background:var(--panel-2); border:1px solid var(--border-real); border-radius:9px; padding:9px 8px; text-align:center; }
+  .derived-item .k{ font-size:10px; color:var(--text-dimmer); letter-spacing:.04em; margin-bottom:3px;}
+  .derived-item .v{ font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--text); }
+
+  .pipe-wrap{ display:flex; justify-content:center; margin-bottom:14px; }
+
+  .checks{ display:flex; flex-direction:column; gap:8px; }
+  .check{
+    display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:9px;
+    border:1px solid var(--border-real); background:var(--panel-2); font-size:12.5px;
+  }
+  .check .icon{ font-size:15px; width:18px; text-align:center; flex-shrink:0; }
+  .check.pass{ border-color:rgba(52,211,153,0.35); }
+  .check.pass .icon{ color:var(--good); }
+  .check.fail{ border-color:rgba(248,113,113,0.4); }
+  .check.fail .icon{ color:var(--bad); }
+  .check .txt b{ color:var(--text); }
+  .check .txt{ color:var(--text-dim); line-height:1.4; }
+
+  details.refs{ margin-top:18px; background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:4px 16px; }
+  details.refs summary{ cursor:pointer; padding:12px 0; font-size:13px; color:var(--text-dim); font-weight:600; }
+  details.refs summary::marker{ color:var(--accent); }
+  .ref-table{ width:100%; border-collapse:collapse; font-size:12px; margin:6px 0 14px; }
+  .ref-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border-real); font-size:11px;}
+  .ref-table td{ padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-dim); }
+  .ref-table td.n-val{ font-family:'IBM Plex Mono',monospace; color:var(--accent); }
+  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.7; padding-bottom:14px; }
+
+  .config-row{ display:flex; gap:8px; }
+  .config-row .field{ flex:1; }
+  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:'IBM Plex Mono',monospace; }
+
+  /* ── 導覽列 ───────────────────────────────── */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:18px; flex-wrap:wrap;
+  }
+  .back{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);
+    text-decoration:none; padding:6px 12px 6px 9px; border-radius:8px;
+    border:1px solid var(--border-real); background:var(--panel-2);
+    transition:color .15s, border-color .15s;
+  }
+  .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .actions{ display:flex; gap:7px; }
+  .action-btn{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);
+    padding:6px 12px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--border-real); background:var(--panel-2);
+    transition:color .15s, border-color .15s;
+  }
+  .action-btn:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .action-btn.done{ color:var(--good); border-color:rgba(52,211,153,.45); }
+
+  /* ── 列印：輸出成報告附件用 ─────────────────── */
+  @media print{
+    body{ background:#fff; color:#000; padding:0; }
+    .topbar, .segmented, details.refs summary{ display:none !important; }
+    .card, .derived-item, .check, details.refs{ background:#fff !important; border-color:#999 !important; }
+    .result-value, .n-val, .card h2, .eyebrow{ color:#000 !important; }
+    .subtitle, .result-label, .derived-item .k, .check .txt, .src-list{ color:#333 !important; }
+    .grid2{ grid-template-columns:1fr 1fr !important; }
+    details.refs{ display:block; }
+    details.refs > *:not(summary){ display:block !important; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar">
+    <a class="back" href="../../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      回工具箱
+    </a>
+    <div class="actions">
+      <button class="action-btn" id="btnShare" type="button">複製分享連結</button>
+      <button class="action-btn" id="btnPrint" type="button">列印 / 存 PDF</button>
+    </div>
+  </nav>
+
+  <div class="eyebrow">MEP // 排水 / 給水工具 ・ HYD-01</div>
+  <h1>Manning 逕流計算機</h1>
+  <p class="subtitle">選擇「要算什麼」，其餘欄位當作已知條件輸入 — 適用重力排水管（圓形管、部分充滿流）的流速、流量、坡度、管徑、粗糙係數與充滿度互解。</p>
+
+  <div class="segmented" id="solveSelector"></div>
+
+  <div class="grid2">
+    <div class="card" id="inputCard">
+      <h2>已知條件</h2>
+      <div id="inputFields"></div>
+    </div>
+
+    <div class="card" id="resultCard">
+      <h2>計算結果</h2>
+      <div class="result-hero">
+        <div class="result-label" id="resultLabel">流速 V</div>
+        <div><span class="result-value" id="resultValue">—</span><span class="result-unit" id="resultUnit">m/s</span></div>
+        <div class="result-sub" id="resultSub"></div>
+      </div>
+
+      <div class="derived-grid" id="derivedGrid"></div>
+
+      <div class="pipe-wrap">
+        <svg id="pipeSvg" width="150" height="130" viewBox="0 0 150 130">
+          <defs>
+            <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#5eead4" stop-opacity="0.85"/>
+              <stop offset="100%" stop-color="#1a8f82" stop-opacity="0.95"/>
+            </linearGradient>
+            <clipPath id="waterClip"><rect id="waterRect" x="0" y="130" width="150" height="0"/></clipPath>
+          </defs>
+          <circle cx="75" cy="65" r="52" fill="none" stroke="#2a4360" stroke-width="2.5"/>
+          <circle cx="75" cy="65" r="52" fill="url(#waterGrad)" clip-path="url(#waterClip)"/>
+          <line id="waterLine" x1="23" y1="65" x2="127" y2="65" stroke="#5eead4" stroke-width="1.3" stroke-dasharray="3,3" opacity="0.9"/>
+          <text id="pipeLabel" x="75" y="122" text-anchor="middle" fill="#8ea0b5" font-size="10.5" font-family="IBM Plex Mono, monospace">充滿度 —</text>
+        </svg>
+      </div>
+
+      <div class="checks" id="checks"></div>
+    </div>
+  </div>
+
+  <details class="refs">
+    <summary>參考來源與 Manning n 值表</summary>
+    <table class="ref-table">
+      <tr><th>材質</th><th>設計值 n</th><th>常見範圍</th></tr>
+      <tr><td>PVC／塑膠管</td><td class="n-val">0.010</td><td>0.009–0.011</td></tr>
+      <tr><td>混凝土管</td><td class="n-val">0.013</td><td>0.012–0.016</td></tr>
+      <tr><td>延展鑄鐵／鑄鐵管</td><td class="n-val">0.013</td><td>0.012–0.015</td></tr>
+      <tr><td>陶管（缸瓦管）</td><td class="n-val">0.013</td><td>0.011–0.017</td></tr>
+      <tr><td>波紋鋼管／HDPE 雙壁波紋管</td><td class="n-val">0.024</td><td>0.021–0.030</td></tr>
+      <tr><td>磚砌／水泥砂漿</td><td class="n-val">0.015</td><td>0.012–0.017</td></tr>
+      <tr><td>鋼管（平滑焊接）</td><td class="n-val">0.012</td><td>0.011–0.015</td></tr>
+    </table>
+    <div class="src-list">
+      n 值來源：Chow, V.T. (1959) <i>Open-Channel Hydraulics</i>；FHWA HEC-22 (2009) <i>Urban Drainage Design Manual</i>, 3rd Ed.；Uni-Bell PVC Pipe Association 技術報告。<br>
+      自淨流速門檻（預設 0.6 m/s）來源：T.R. Camp, "Minimum velocities for sewers," <i>Journal of Boston Society of Civil Engineers</i>, 1942/1946（各國規範採用範圍 0.6–0.9 m/s）。<br>
+      法規最低坡度檢核（管徑 &gt;75mm ≥ 1/100，≤75mm ≥ 1/50）依據：建築物給水排水設備設計技術規範第 4.2.3 條。
+    </div>
+  </details>
+
+  <details class="refs">
+    <summary>檢核門檻設定（可自訂）</summary>
+    <div class="config-row" style="padding-bottom:14px;">
+      <div class="field">
+        <label>自淨流速下限 (m/s)</label>
+        <input type="number" id="cfgVmin" value="0.6" step="0.05">
+      </div>
+      <div class="field">
+        <label>流速上限 (m/s)</label>
+        <input type="number" id="cfgVmax" value="3.0" step="0.1">
+      </div>
+    </div>
+  </details>
+
+  <footer class="credit">MANNING · V = (1/n)·R^(2/3)·S^(1/2) · 部分充滿圓管流</footer>
+</div>
+
+<script>
+// ---------- Data ----------
+const MATERIALS = [
+  {key:'pvc', label:'PVC／塑膠管', n:0.010},
+  {key:'concrete', label:'混凝土管', n:0.013},
+  {key:'iron', label:'延展鑄鐵／鑄鐵管', n:0.013},
+  {key:'clay', label:'陶管（缸瓦管）', n:0.013},
+  {key:'corrugated', label:'波紋鋼管／HDPE波紋管', n:0.024},
+  {key:'brick', label:'磚砌／水泥砂漿', n:0.015},
+  {key:'steel', label:'鋼管（平滑焊接）', n:0.012},
+  {key:'custom', label:'自訂數值...', n:null},
+];
+
+const TARGETS = [
+  {key:'V', label:'V', lbl:'流速', unit:'m/s'},
+  {key:'Q', label:'Q', lbl:'流量', unit:'L/s'},
+  {key:'S', label:'S', lbl:'坡度', unit:''},
+  {key:'D', label:'D', lbl:'管徑', unit:'mm'},
+  {key:'n', label:'n', lbl:'粗糙係數', unit:''},
+  {key:'r', label:'r', lbl:'充滿度', unit:'%'},
+];
+
+let state = {
+  solveFor: 'V',
+  D: 100,           // mm
+  S_denom: 100,     // slope expressed as 1/S_denom
+  r: 50,            // fill ratio %
+  material: 'pvc',
+  n_custom: 0.010,
+  knownMode: 'V',   // when solving S/D/n/r: which of V or Q is the known target
+  knownV: 0.6,
+  knownQ: 1.9,
+};
+
+// ---------- Geometry helpers ----------
+function theta(r){ // r = h/D in (0,1]
+  const x = Math.max(-1, Math.min(1, 1 - 2*r));
+  return 2*Math.acos(x);
+}
+function shapeF(r){ // R/D
+  if(r<=0) return 0;
+  const th = theta(r);
+  if(th<=0) return 0;
+  return (th - Math.sin(th)) / (4*th);
+}
+function shapeG(r){ // A/D^2
+  if(r<=0) return 0;
+  const th = theta(r);
+  return (th - Math.sin(th)) / 8;
+}
+function currentN(){
+  if(state.material === 'custom') return state.n_custom;
+  return MATERIALS.find(m=>m.key===state.material).n;
+}
+
+function fmt(x, d){
+  if(x===null || x===undefined || !isFinite(x)) return '—';
+  return x.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
+}
+
+// ---------- Build target selector ----------
+const solveSelector = document.getElementById('solveSelector');
+TARGETS.forEach(t=>{
+  const b = document.createElement('button');
+  b.className = 'seg-btn' + (state.solveFor===t.key ? ' active':'');
+  b.innerHTML = t.label + '<span class="lbl">'+t.lbl+'</span>';
+  b.onclick = ()=>{ state.solveFor = t.key; renderAll(); };
+  b.dataset.key = t.key;
+  solveSelector.appendChild(b);
+});
+
+// ---------- Render input fields based on solveFor ----------
+function renderInputs(){
+  const target = state.solveFor;
+  const el = document.getElementById('inputFields');
+  el.innerHTML = '';
+
+  const needsKnownTarget = ['S','D','n','r'].includes(target);
+
+  if(needsKnownTarget){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="field">
+        <label>已知的是</label>
+        <div class="toggle-pair">
+          <button id="btnKnownV" class="${state.knownMode==='V'?'active':''}">流速 V (m/s)</button>
+          <button id="btnKnownQ" class="${state.knownMode==='Q'?'active':''}">流量 Q (L/s)</button>
+        </div>
+      </div>
+      <div class="field" id="knownValField">
+        <label id="knownValLabel">${state.knownMode==='V' ? '目標流速 V (m/s)' : '目標流量 Q (L/s)'}</label>
+        <input type="number" id="knownValInput" step="0.01" value="${state.knownMode==='V'?state.knownV:state.knownQ}">
+      </div>
+    `;
+    el.appendChild(wrap);
+    document.getElementById('btnKnownV').onclick = ()=>{ state.knownMode='V'; renderAll(); };
+    document.getElementById('btnKnownQ').onclick = ()=>{ state.knownMode='Q'; renderAll(); };
+    document.getElementById('knownValInput').oninput = (e)=>{
+      const v = parseFloat(e.target.value);
+      if(state.knownMode==='V') state.knownV = v; else state.knownQ = v;
+      computeAndRender();
+    };
+  }
+
+  // D field (hidden if solving for D)
+  if(target !== 'D'){
+    const f = document.createElement('div'); f.className='field';
+    f.innerHTML = `<label>管徑 D (mm)</label>
+      <input type="number" id="inD" step="1" value="${state.D}">
+      <div class="sub-hint">≈ ${(state.D/25.4).toFixed(2)} 吋</div>`;
+    el.appendChild(f);
+    setTimeout(()=>{ document.getElementById('inD').oninput = e=>{ state.D=parseFloat(e.target.value)||0; renderInputs(); computeAndRender(); }; },0);
+  }
+
+  // Slope field (hidden if solving for S)
+  if(target !== 'S'){
+    const f = document.createElement('div'); f.className='field';
+    f.innerHTML = `<label>坡度 &nbsp; 1 / ___</label>
+      <input type="number" id="inS" step="1" value="${state.S_denom}">
+      <div class="sub-hint">= ${(1/state.S_denom).toFixed(5)}（小數）</div>`;
+    el.appendChild(f);
+    setTimeout(()=>{ document.getElementById('inS').oninput = e=>{ state.S_denom=parseFloat(e.target.value)||1; renderInputs(); computeAndRender(); }; },0);
+  }
+
+  // Fill ratio field (hidden if solving for r)
+  if(target !== 'r'){
+    const f = document.createElement('div'); f.className='field';
+    f.innerHTML = `<label>充滿度 r (%)</label>
+      <input type="number" id="inR" step="1" min="1" max="100" value="${state.r}">
+      <div class="sub-hint">水深 ≈ ${(state.r/100*state.D).toFixed(1)} mm</div>`;
+    el.appendChild(f);
+    setTimeout(()=>{ document.getElementById('inR').oninput = e=>{ state.r=parseFloat(e.target.value)||0; renderInputs(); computeAndRender(); }; },0);
+  }
+
+  // n field (hidden if solving for n)
+  if(target !== 'n'){
+    const f = document.createElement('div'); f.className='field';
+    let opts = MATERIALS.map(m=>`<option value="${m.key}" ${state.material===m.key?'selected':''}>${m.label}${m.n?' (n='+m.n+')':''}</option>`).join('');
+    f.innerHTML = `<label>管材 n</label>
+      <select id="inMat">${opts}</select>
+      <div id="customNWrap" style="margin-top:8px; ${state.material==='custom'?'':'display:none'}">
+        <input type="number" id="inNCustom" step="0.001" value="${state.n_custom}" placeholder="自訂 n 值">
+      </div>`;
+    el.appendChild(f);
+    setTimeout(()=>{
+      document.getElementById('inMat').onchange = e=>{ state.material=e.target.value; renderInputs(); computeAndRender(); };
+      const cw = document.getElementById('inNCustom');
+      if(cw) cw.oninput = e=>{ state.n_custom=parseFloat(e.target.value)||0.01; computeAndRender(); };
+    },0);
+  }
+}
+
+// ---------- Core computation ----------
+function computeAll(){
+  const target = state.solveFor;
+  const Dmm = state.D;
+  const Dm = Dmm/1000;
+  const S = 1/state.S_denom;
+  const r = state.r/100;
+  const n = currentN();
+
+  let out = { D:Dmm, S:S, r:r*100, n:n, V:null, Q:null, R:null, A:null, P:null, valid:true };
+
+  function geomFromDr(Dm_, r_){
+    const f = shapeF(r_), g = shapeG(r_);
+    const R_ = Dm_*f, A_ = Dm_*Dm_*g;
+    const th = theta(r_);
+    const P_ = th>0 ? (Dm_/2)*th : 0;
+    return {R:R_, A:A_, P:P_, f:f, g:g};
+  }
+
+  if(target === 'V' || target === 'Q'){
+    const geo = geomFromDr(Dm, r);
+    const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
+    const Q = geo.A*V; // m3/s
+    out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=V; out.Q=Q*1000; // L/s
+  }
+  else if(target === 'S'){
+    const geo = geomFromDr(Dm, r);
+    let Vt = state.knownMode==='V' ? state.knownV : (state.knownQ/1000)/geo.A;
+    const Sreq = geo.R>0 ? Math.pow(Vt*n/Math.pow(geo.R,2/3), 2) : NaN;
+    out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=Vt; out.Q=geo.A*Vt*1000; out.S=Sreq;
+    if(Sreq>0) out.S_denom_calc = 1/Sreq;
+  }
+  else if(target === 'D'){
+    // solve D from target V or Q, given n,S,r fixed
+    const f = shapeF(r), g = shapeG(r);
+    let Dsolved;
+    if(state.knownMode==='V'){
+      const Vt = state.knownV;
+      // D = (V*n/sqrt(S))^(3/2) / f
+      const base = Vt*n/Math.sqrt(S);
+      Dsolved = f>0 ? Math.pow(base,1.5)/f : NaN;
+    } else {
+      const Qt = state.knownQ/1000; // m3/s
+      const K = (g*Math.pow(f,2/3))/n;
+      Dsolved = K>0 ? Math.pow(Qt/(K*Math.sqrt(S)), 3/8) : NaN;
+    }
+    const geo = geomFromDr(Dsolved, r);
+    const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
+    out.D = Dsolved*1000; out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=V; out.Q=geo.A*V*1000;
+  }
+  else if(target === 'n'){
+    const geo = geomFromDr(Dm, r);
+    let Vt = state.knownMode==='V' ? state.knownV : (state.knownQ/1000)/geo.A;
+    const nSolved = Vt>0 ? Math.pow(geo.R,2/3)*Math.sqrt(S)/Vt : NaN;
+    out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=Vt; out.Q=geo.A*Vt*1000; out.n=nSolved;
+  }
+  else if(target === 'r'){
+    // bisection to find r such that computed V (or Q) == target
+    const wantQ = state.knownMode==='Q';
+    const targetVal = wantQ ? state.knownQ/1000 : state.knownV;
+    function valAt(rr){
+      const geo = geomFromDr(Dm, rr);
+      const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
+      return wantQ ? geo.A*V : V;
+    }
+    let lo=0.001, hi=1.0, mid=0.5;
+    let flo = valAt(lo)-targetVal, fhi = valAt(hi)-targetVal;
+    if((flo>0 && fhi>0) || (flo<0 && fhi<0)){
+      out.valid=false;
+    } else {
+      for(let i=0;i<50;i++){
+        mid=(lo+hi)/2;
+        const fm = valAt(mid)-targetVal;
+        if(Math.abs(fm)<1e-9) break;
+        if((fm>0)===(flo>0)){ lo=mid; flo=fm; } else { hi=mid; }
+      }
+    }
+    const geo = geomFromDr(Dm, mid);
+    const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
+    out.r = mid*100; out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=V; out.Q=geo.A*V*1000;
+  }
+
+  return out;
+}
+
+// ---------- Render results ----------
+function renderResults(res){
+  const tInfo = TARGETS.find(t=>t.key===state.solveFor);
+  document.getElementById('resultLabel').textContent = tInfo.lbl + ' ' + tInfo.label;
+
+  let mainVal, mainUnit, subText='';
+  if(!res.valid){
+    document.getElementById('resultValue').textContent = '無解';
+    document.getElementById('resultUnit').textContent='';
+    document.getElementById('resultSub').textContent = '在充滿度 1–100% 範圍內找不到符合目標的解，請確認輸入數值。';
+  } else {
+    switch(state.solveFor){
+      case 'V': mainVal=fmt(res.V,3); mainUnit='m/s'; subText=`Q = ${fmt(res.Q,2)} L/s`; break;
+      case 'Q': mainVal=fmt(res.Q,2); mainUnit='L/s'; subText=`= ${fmt(res.Q*60,1)} L/min ・ V = ${fmt(res.V,3)} m/s`; break;
+      case 'S':
+        if(isFinite(res.S) && res.S>0){
+          mainVal='1 / '+fmt(res.S_denom_calc,1); mainUnit=''; subText=`小數 = ${res.S.toFixed(5)}`;
+        } else { mainVal='無解'; mainUnit=''; }
+        break;
+      case 'D': mainVal=fmt(res.D,0); mainUnit='mm'; subText=`≈ ${(res.D/25.4).toFixed(2)} 吋`; break;
+      case 'n': mainVal=res.n?res.n.toFixed(4):'—'; mainUnit=''; subText='對照材質表找最接近的管材'; break;
+      case 'r': mainVal=fmt(res.r,1); mainUnit='%'; subText=`水深 ≈ ${fmt(res.r/100*res.D,1)} mm`; break;
+    }
+    document.getElementById('resultValue').textContent = mainVal;
+    document.getElementById('resultUnit').textContent = mainUnit;
+    document.getElementById('resultSub').textContent = subText;
+  }
+
+  // derived grid
+  const dg = document.getElementById('derivedGrid');
+  dg.innerHTML = '';
+  const items = [
+    {k:'R 水力半徑', v: res.R!=null ? fmt(res.R,4)+' m' : '—'},
+    {k:'A 截面積', v: res.A!=null ? fmt(res.A,5)+' m²' : '—'},
+    {k:'P 濕周', v: res.P!=null ? fmt(res.P,4)+' m' : '—'},
+  ];
+  items.forEach(it=>{
+    const d = document.createElement('div'); d.className='derived-item';
+    d.innerHTML = `<div class="k">${it.k}</div><div class="v">${it.v}</div>`;
+    dg.appendChild(d);
+  });
+
+  // pipe visual
+  const rFrac = res.valid ? (state.solveFor==='r' ? res.r/100 : state.r/100) : 0;
+  const R_svg = 52, cy=65;
+  const fillH = Math.max(0, Math.min(1,rFrac)) * (2*R_svg);
+  const rect = document.getElementById('waterRect');
+  rect.setAttribute('y', (cy+R_svg) - fillH);
+  rect.setAttribute('height', fillH);
+  const waterY = (cy+R_svg) - fillH;
+  document.getElementById('waterLine').setAttribute('y1', waterY);
+  document.getElementById('waterLine').setAttribute('y2', waterY);
+  document.getElementById('pipeLabel').textContent = '充滿度 ' + (res.valid ? fmt(rFrac*100,0) : '—') + '%';
+
+  // checks
+  const checks = document.getElementById('checks');
+  checks.innerHTML = '';
+  if(res.valid){
+    const vmin = parseFloat(document.getElementById('cfgVmin').value)||0.6;
+    const vmax = parseFloat(document.getElementById('cfgVmax').value)||3.0;
+    const V = res.V;
+
+    // self-cleansing check
+    if(V!=null){
+      const passMin = V>=vmin, passMax = V<=vmax;
+      addCheck(checks, passMin, `自淨流速下限 ${vmin} m/s：<b>${fmt(V,3)} m/s</b> ${passMin?'符合':'不足，長期恐沉積結垢'}`);
+      addCheck(checks, passMax, `流速上限 ${vmax} m/s：${passMax?'未超過':'超過，恐沖蝕／噪音／虹吸風險'}`);
+    }
+    // code min slope check (only meaningful once D & S both known)
+    const Dmm = res.D;
+    const Smin = Dmm>75 ? 1/100 : 1/50;
+    const Sval = res.S;
+    if(isFinite(Sval) && Sval>0){
+      const passSlope = Sval >= Smin - 1e-9;
+      addCheck(checks, passSlope, `法規最低坡度（管徑${Dmm>75?'>75mm→1/100':'≤75mm→1/50'}）：目前 1/${fmt(1/Sval,0)} ${passSlope?'合規':'不足，違反規範'}`);
+    }
+  }
+}
+function addCheck(container, pass, html){
+  const d = document.createElement('div');
+  d.className = 'check ' + (pass?'pass':'fail');
+  d.innerHTML = `<span class="icon">${pass?'✓':'✕'}</span><span class="txt">${html}</span>`;
+  container.appendChild(d);
+}
+
+// ---------- Orchestration ----------
+function computeAndRender(){
+  const res = computeAll();
+  renderResults(res);
+}
+function renderAll(){
+  document.querySelectorAll('.seg-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.key===state.solveFor);
+  });
+  renderInputs();
+  computeAndRender();
+}
+
+document.getElementById('cfgVmin').oninput = computeAndRender;
+document.getElementById('cfgVmax').oninput = computeAndRender;
+
+// ---------- 網址狀態同步 ----------
+// 把目前的輸入條件寫進網址 hash，這樣把連結貼給同事時，
+// 對方打開看到的就是同一組條件與同一個答案。
+const HASH_KEYS = {
+  solve: ['solveFor', String],
+  D:     ['D', Number],
+  S:     ['S_denom', Number],
+  r:     ['r', Number],
+  mat:   ['material', String],
+  nc:    ['n_custom', Number],
+  km:    ['knownMode', String],
+  kv:    ['knownV', Number],
+  kq:    ['knownQ', Number],
+};
+
+function writeHash(){
+  const p = new URLSearchParams();
+  for(const [key, [field]] of Object.entries(HASH_KEYS)){
+    const v = state[field];
+    if(v !== null && v !== undefined && !Number.isNaN(v)) p.set(key, v);
+  }
+  p.set('vmin', document.getElementById('cfgVmin').value);
+  p.set('vmax', document.getElementById('cfgVmax').value);
+  history.replaceState(null, '', '#' + p.toString());
+}
+
+function readHash(){
+  if(!location.hash || location.hash.length < 2) return;
+  const p = new URLSearchParams(location.hash.slice(1));
+  for(const [key, [field, cast]] of Object.entries(HASH_KEYS)){
+    if(!p.has(key)) continue;
+    const raw = p.get(key);
+    const val = cast(raw);
+    if(cast === Number && !isFinite(val)) continue;
+    state[field] = val;
+  }
+  if(p.has('vmin')) document.getElementById('cfgVmin').value = p.get('vmin');
+  if(p.has('vmax')) document.getElementById('cfgVmax').value = p.get('vmax');
+}
+
+// 每次重算後同步網址
+const _computeAndRender = computeAndRender;
+computeAndRender = function(){ _computeAndRender(); writeHash(); };
+
+// ---------- 分享與列印 ----------
+document.getElementById('btnShare').onclick = async function(){
+  writeHash();
+  const btn = this;
+  const url = location.href;
+  try{
+    await navigator.clipboard.writeText(url);
+  }catch(e){
+    // 非 HTTPS 或瀏覽器不支援剪貼簿時的備援
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){ prompt('複製這段網址：', url); }
+    document.body.removeChild(ta);
+  }
+  btn.textContent = '已複製連結';
+  btn.classList.add('done');
+  setTimeout(() => { btn.textContent = '複製分享連結'; btn.classList.remove('done'); }, 2000);
+};
+
+document.getElementById('btnPrint').onclick = () => window.print();
+
+readHash();
+renderAll();
+</script>
+</body>
+</html>
