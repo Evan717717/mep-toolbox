@@ -24,7 +24,7 @@
 window.TOOLS = [
   {
     id: 'HYD-01',
-    name: 'Manning 徑流計算機',
+    name: 'Manning 逕流計算機',
     path: 'tools/manning-calculator/',
     summary: '圓管部分充滿流的流速、流量、坡度、管徑、粗糙係數、充滿度六者互解，附自淨流速與法規最低坡度檢核。',
     formula: 'V = (1/n) · R^(2/3) · S^(1/2)',
@@ -38,7 +38,7 @@ window.TOOLS = [
   //   id: 'HYD-02',
   //   name: '雨水排水量估算',
   //   path: 'tools/rational-method/',
-  //   summary: '合理化公式估算集水區徑流量，內建各地降雨強度公式與徑流係數表。',
+  //   summary: '合理化公式估算集水區逕流量，內建各地降雨強度公式與逕流係數表。',
   //   formula: 'Q = C · I · A / 360',
   //   tags: ['水力', '排水'],
   //   status: 'wip',
