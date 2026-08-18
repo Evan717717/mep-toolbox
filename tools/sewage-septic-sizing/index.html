@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>污水/廢水量與化糞池・抽水泵浦選型 — MEP 工具箱</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>污廢水量、化糞池與集水坑泵浦 — MEP 工具箱</title>
+<meta name="color-scheme" content="dark light">
 <style>
   :root{
     --bg:#0b1622; --panel:#101f30; --panel-2:#0d1a29;
     --grid:rgba(94,234,212,0.055); --border-real:#22384d;
     --accent:#5eead4; --accent-dim:#2f5a54; --amber:#f5b942;
-    --good:#34d399; --bad:#f87171;
+    --good:#34d399; --bad:#f87171; --info:#60a5fa;
     --text:#e8eef4; --text-dim:#8ea0b5; --text-dimmer:#5b7086;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono','Noto Sans Mono',monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
   }
   *{box-sizing:border-box;}
   body{
@@ -22,97 +22,127 @@
       linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
       linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px,
       var(--bg);
-    color:var(--text); font-family:'Inter',system-ui,sans-serif;
+    color:var(--text); font-family:var(--sans);
     padding:20px 14px 60px; -webkit-font-smoothing:antialiased;
   }
-  .wrap{ max-width:980px; margin:0 auto; }
-  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  .wrap{ max-width:1000px; margin:0 auto; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
   h1{ font-size:26px; margin:0 0 4px; font-weight:700; letter-spacing:-0.01em; }
-  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 20px; line-height:1.5; }
+  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 20px; line-height:1.6; }
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
-  .back{ display:inline-flex; align-items:center; gap:7px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); text-decoration:none; padding:6px 12px 6px 9px; border-radius:8px; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .back{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:12px; color:var(--text-dim); text-decoration:none; padding:7px 12px 7px 9px; border-radius:8px; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
   .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
   .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
-  .actions{ display:flex; gap:7px; }
-  .action-btn{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); padding:6px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .actions{ display:flex; gap:7px; flex-wrap:wrap; }
+  .action-btn{ font-family:var(--mono); font-size:12px; color:var(--text-dim); padding:7px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
   .action-btn:hover{ color:var(--accent); border-color:var(--accent-dim); }
   .action-btn.done{ color:var(--good); border-color:rgba(52,211,153,.45); }
+  .action-btn:focus-visible, .add-row-btn:focus-visible, .rm-btn:focus-visible,
+  .toggle-pair button:focus-visible, .seg-btn:focus-visible,
+  input:focus-visible, select:focus-visible, summary:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
 
-  .summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px; }
-  @media (max-width:720px){ .summary{ grid-template-columns:1fr 1fr; } }
+  .summary{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+  @media (max-width:760px){ .summary{ grid-template-columns:repeat(2,1fr); } }
   .sum-item{ background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:12px 14px; }
   .sum-item .k{ font-size:10.5px; color:var(--text-dimmer); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px; }
-  .sum-item .v{ font-family:'IBM Plex Mono',monospace; font-size:19px; color:var(--accent); font-weight:700; }
+  .sum-item .v{ font-family:var(--mono); font-size:19px; color:var(--accent); font-weight:700; word-break:break-all; }
   .sum-item .v span{ font-size:11px; color:var(--text-dim); font-weight:500; margin-left:3px; }
+  .sum-item.ok .v{ color:var(--good); } .sum-item.bad .v{ color:var(--bad); }
 
-  .step{ background:var(--panel); border:1px solid var(--border-real); border-radius:14px; padding:18px 18px 20px; margin-bottom:14px; }
+  .step, .card{ background:var(--panel); border:1px solid var(--border-real); border-radius:14px; padding:18px 18px 20px; margin-bottom:14px; }
   .step-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
-  .step-num{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent); font-weight:700; }
-  .step h2{ font-size:15px; margin:0; font-weight:700; flex:1; }
-  .step .step-sub{ color:var(--text-dim); font-size:12.5px; margin:2px 0 14px; line-height:1.5; }
-  .formula-line{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--accent); background:var(--panel-2); border:1px solid var(--border-real); border-left:2px solid var(--accent); padding:8px 11px; border-radius:0 7px 7px 0; margin:0 0 14px; overflow-x:auto; white-space:nowrap; }
+  .step-num{ font-family:var(--mono); font-size:12px; color:var(--accent); font-weight:700; }
+  .step h2, .card h2{ font-size:15px; margin:0; font-weight:700; flex:1; }
+  .step .step-sub{ color:var(--text-dim); font-size:12.5px; margin:2px 0 14px; line-height:1.6; }
+  .formula-line{ font-family:var(--mono); font-size:12.5px; color:var(--accent); background:var(--panel-2); border:1px solid var(--border-real); border-left:2px solid var(--accent); padding:8px 11px; border-radius:0 7px 7px 0; margin:0 0 14px; overflow-x:auto; }
 
   .field{ margin-bottom:14px; }
   .field:last-child{ margin-bottom:0; }
-  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; line-height:1.4; }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  @media (max-width:720px){ .grid2,.grid3{ grid-template-columns:1fr 1fr; } }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:720px){ .grid2,.grid3,.grid4{ grid-template-columns:1fr; } }
 
-  input[type=number], select{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:14.5px; padding:8px 10px; border-radius:8px; outline:none; transition:border-color .15s; }
-  input[type=number]:focus, select:focus{ border-color:var(--accent); }
-  select{ cursor:pointer; }
-  .sub-hint{ font-size:11px; color:var(--text-dimmer); margin-top:5px; font-family:'IBM Plex Mono',monospace; }
-
-  .toggle-pair{ display:flex; gap:6px; margin-bottom:12px; }
-  .toggle-pair button{ flex:1; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim); font-size:12px; font-weight:600; padding:7px; border-radius:7px; cursor:pointer; font-family:'Inter',sans-serif; }
-  .toggle-pair button.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+  input[type=number], input[type=text], select{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:var(--mono); font-size:15px; padding:9px 10px; border-radius:8px; outline:none; transition:border-color .15s; }
+  input[type=number]:focus, input[type=text]:focus, select:focus{ border-color:var(--accent); }
+  input[type=number].dirty, input[type=text].dirty{ border-color:var(--amber); }
+  select{ cursor:pointer; font-family:var(--sans); }
+  .sub-hint{ font-size:11.5px; color:var(--text-dimmer); margin-top:5px; font-family:var(--mono); line-height:1.5; }
+  .sub-hint b{ color:var(--text-dim); }
 
   table.rows-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:10px; }
   table.rows-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 5px; border-bottom:1px solid var(--border-real); font-size:10px; letter-spacing:.04em; text-transform:uppercase; }
   table.rows-table td{ padding:5px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
-  table.rows-table input[type=number]{ padding:6px 7px; font-size:12.5px; }
-  table.rows-table input[type=text]{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:'Inter',sans-serif; font-size:12.5px; padding:6px 7px; border-radius:6px; outline:none; }
-  .rm-btn{ background:transparent; border:1px solid var(--border-real); color:var(--bad); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:14px; line-height:1; }
-  .add-row-btn{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent); background:var(--panel-2); border:1px dashed var(--accent-dim); border-radius:8px; padding:7px 12px; cursor:pointer; }
+  table.rows-table input{ padding:7px; font-size:13px; }
+  table.rows-table select{ padding:7px; font-size:12.5px; }
+  td.calc-cell{ font-family:var(--mono); color:var(--text); text-align:right; white-space:nowrap; }
+  .table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .table-scroll table{ min-width:600px; }
+  .rm-btn{ background:transparent; border:1px solid var(--border-real); color:var(--bad); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:15px; line-height:1; }
+  .add-row-btn{ font-family:var(--mono); font-size:12px; color:var(--accent); background:var(--panel-2); border:1px dashed var(--accent-dim); border-radius:8px; padding:8px 13px; cursor:pointer; }
 
-  .result-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; margin-top:4px; flex-wrap:wrap; }
+  .result-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; margin-top:6px; flex-wrap:wrap; }
+  .result-row.primary{ border-color:var(--accent-dim); }
   .result-row .lbl{ font-size:12.5px; color:var(--text-dim); }
-  .result-row .val{ font-family:'IBM Plex Mono',monospace; font-size:20px; color:var(--accent); font-weight:700; }
+  .result-row .val{ font-family:var(--mono); font-size:20px; color:var(--accent); font-weight:700; }
+  .result-row .val.sm{ font-size:15px; }
   .result-row .val span{ font-size:12px; color:var(--text-dim); font-weight:500; margin-left:4px; }
 
-  .check{ display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:9px; border:1px solid var(--border-real); background:var(--panel-2); font-size:12.5px; margin-top:8px; }
-  .check .icon{ font-size:15px; width:18px; text-align:center; flex-shrink:0; }
+  .check{ display:flex; align-items:flex-start; gap:10px; padding:9px 11px; border-radius:9px; border:1px solid var(--border-real); background:var(--panel-2); font-size:12.5px; margin-top:8px; }
+  .check .icon{ font-size:14px; width:18px; text-align:center; flex-shrink:0; line-height:1.5; }
   .check.pass{ border-color:rgba(52,211,153,0.35); } .check.pass .icon{ color:var(--good); }
   .check.fail{ border-color:rgba(248,113,113,0.4); } .check.fail .icon{ color:var(--bad); }
   .check.warn{ border-color:rgba(245,185,66,.4); } .check.warn .icon{ color:var(--amber); }
+  .check.info{ border-color:rgba(96,165,250,.35); } .check.info .icon{ color:var(--info); }
+  .check .txt{ color:var(--text-dim); line-height:1.55; }
   .check .txt b{ color:var(--text); }
-  .check .txt{ color:var(--text-dim); line-height:1.4; }
 
-  .notice{ display:flex; gap:10px; padding:11px 13px; border-radius:9px; border:1px solid rgba(245,185,66,.4); background:rgba(245,185,66,.08); font-size:12.5px; color:var(--text-dim); line-height:1.6; margin-bottom:14px; }
-  .notice b{ color:var(--amber); }
-  .notice.info{ border-color:var(--border-real); background:var(--panel-2); }
-  .notice.info b{ color:var(--accent); }
+  .toggle-pair{ display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .toggle-pair button{ flex:1 1 140px; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim); font-size:12.5px; font-weight:600; padding:9px 8px; border-radius:7px; cursor:pointer; font-family:var(--sans); }
+  .toggle-pair button.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
 
+  details.sub{ margin-top:8px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; padding:2px 14px; }
+  details.sub summary{ cursor:pointer; padding:10px 0; font-size:12.5px; color:var(--accent); font-weight:600; }
+  details.sub summary::marker{ color:var(--accent); }
   details.refs{ margin-top:4px; background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:4px 16px; }
   details.refs summary{ cursor:pointer; padding:12px 0; font-size:13px; color:var(--text-dim); font-weight:600; }
   details.refs summary::marker{ color:var(--accent); }
   .ref-table{ width:100%; border-collapse:collapse; font-size:12px; margin:6px 0 14px; }
   .ref-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border-real); font-size:11px;}
   .ref-table td{ padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-dim); }
-  .ref-table td.n-val{ font-family:'IBM Plex Mono',monospace; color:var(--accent); }
-  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.7; padding-bottom:14px; }
+  .ref-table td.n-val{ font-family:var(--mono); color:var(--accent); }
+  .ref-table tr.hi td{ background:rgba(94,234,212,.07); }
+  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.75; padding-bottom:14px; }
+  .src-list b{ color:var(--text-dim); }
 
-  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:'IBM Plex Mono',monospace; }
+  .notice{ display:flex; gap:10px; padding:11px 13px; border-radius:9px; border:1px solid rgba(245,185,66,.4); background:rgba(245,185,66,.08); font-size:12.5px; color:var(--text-dim); line-height:1.65; margin-bottom:14px; }
+  .notice b{ color:var(--amber); }
+  .notice.info{ border-color:rgba(96,165,250,.35); background:rgba(96,165,250,.07); }
+  .notice.info b{ color:var(--info); }
+
+  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:var(--mono); line-height:1.7; }
+  .print-only{ display:none; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
   @media print{
-    body{ background:#fff; color:#000; padding:0; }
-    .topbar, .summary, .add-row-btn, .rm-btn, details summary{ display:none !important; }
-    .step, .result-row, .check, details{ background:#fff !important; border-color:#999 !important; }
-    .result-row .val, .n-val, .step h2, .eyebrow, .formula-line{ color:#000 !important; }
-    .subtitle, .step-sub, .src-list{ color:#333 !important; }
+    @page{ margin:14mm; }
+    body{ background:#fff; color:#000; padding:0; font-size:11px; }
+    .topbar, .add-row-btn, .rm-btn{ display:none !important; }
+    .print-only{ display:block; }
+    .step, .card, .result-row, .check, details, .summary, .sum-item, .notice{
+      background:#fff !important; border-color:#999 !important; break-inside:avoid;
+    }
+    .result-row .val, .n-val, .step h2, .card h2, .eyebrow, .formula-line,
+    .sum-item .v, h1, .calc-cell{ color:#000 !important; }
+    .subtitle, .step-sub, .src-list, .sub-hint, .check .txt, .notice{ color:#333 !important; }
+    input, select{ color:#000 !important; background:#fff !important; border-color:#bbb !important; }
     details{ display:block; } details > *:not(summary){ display:block !important; }
+    details summary{ color:#000 !important; font-weight:700; }
+    a[href]:after{ content:''; }
   }
   @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
 </style>
@@ -121,291 +151,648 @@
 <div class="wrap">
   <nav class="topbar">
     <a class="back" href="../../">
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
       回工具箱
     </a>
     <div class="actions">
+      <button class="action-btn" id="btnReset" type="button">回復預設值</button>
       <button class="action-btn" id="btnShare" type="button">複製分享連結</button>
       <button class="action-btn" id="btnPrint" type="button">列印 / 存 PDF</button>
     </div>
   </nav>
+  <div class="print-only" style="font-size:10px;color:#555;margin-bottom:8px;" id="printStamp"></div>
 
   <div class="eyebrow">MEP // 排水工具 ・ HYD-04</div>
-  <h1>污水/廢水量與化糞池・抽水泵浦選型</h1>
-  <p class="subtitle">生活污水（依給水量回收率反推）＋ 製程廢水（如冷卻水塔 blowdown）加總成污水系統總排放量，並試算化糞池/污水處理設施規模與集水坑抽水泵浦需求。雨水系統請改用「雨水排水設計流量計算機」— 兩者分流設計、不可混算。</p>
+  <h1>污廢水量、化糞池與集水坑泵浦</h1>
+  <p class="subtitle">生活污水（給水量 × 回收率）＋ 製程廢水加總為污水系統排放量，做用水/排水平衡勾稽，再依<b>尖峰流量</b>（非日平均）選集水坑泵浦與坑體容積，並提供化糞池／處理設施規模與 DFU 管徑對照。</p>
 
   <div class="notice">
-    <span>⚠️</span>
-    <span><b>本工具僅供規劃期估算，非送審依據。</b>管徑最終須以當地建築主管機關認可之器具排水單位（DFU）對照表計算；化糞池/處理設施須以當地環保署認可廠商規格書為準；放流納管條件請洽當地污水下水道機構。</span>
+    <span aria-hidden="true">⚠️</span>
+    <span><b>本工具僅供規劃期估算，非送審依據。</b>管徑最終須依當地建築主管機關認可之器具排水單位對照表計算；化糞池／污水處理設施須以環境部認可之廠商規格書與法定設計人口為準；納管與放流條件請洽當地污水下水道機構。</span>
+  </div>
+  <div class="notice info">
+    <span aria-hidden="true">ℹ️</span>
+    <span><b>為什麼污水與雨水一定要分兩支工具算：</b>兩者的設計流量單位（M³/日 vs m³/s）、尖峰特性（人為作息 vs 降雨事件）、管材與顏色標示、放流終點與主管機關（污水下水道機構 vs 水利／工務單位）全部不同。硬合成一支工具算出來的數字沒有一個能直接用。雨水請用「雨水排水設計流量計算機」。</span>
   </div>
 
   <div class="summary" id="summary"></div>
 
+
+  <!-- STEP 0 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">◇</span><h2>系統分流架構</h2></div>
+    <div class="step-sub">「污水」「廢水」「雨水」在台灣是三個不同的東西，先確認本案採哪一種架構，後面的化糞池規模與管路配置才有意義。</div>
+    <div class="toggle-pair">
+      <button id="sysCombined" type="button">污廢合流（污水＋雜排水同管，一起進處理設施）</button>
+      <button id="sysSeparate" type="button">污廢分流（糞便污水進化糞池，雜排水另管）</button>
+    </div>
+    <div id="sysNote"></div>
+  </div>
+
   <!-- STEP 1 -->
   <div class="step">
     <div class="step-head"><span class="step-num">①</span><h2>生活污水量</h2></div>
-    <div class="step-sub">原則：生活污水排放量 ≈ 生活給水量 × 回收率。無大量非回收性用水（如澆灌、清洗）可取 100%。</div>
+    <div class="step-sub">原則：生活污水排放量 ≈ 生活給水量 × 回收率。此處的「生活給水量」應等於給水計算 V2 的<b>非製程部分</b>，兩份計算書要對得起來。</div>
     <div class="formula-line">生活污水量 = 生活給水量 × 回收率</div>
-    <div class="grid2">
-      <div class="field"><label>生活給水量（M³/日，即給水計算 V2 非空調部分）</label><input type="number" id="domesticSupply" step="0.1" value="7.96"></div>
-      <div class="field"><label>回收率 (%)</label><input type="number" id="recoveryRate" step="1" min="0" max="100" value="100"></div>
+    <div class="grid3">
+      <div class="field"><label for="domesticSupply">生活給水量 (M³/日)</label><input type="number" id="domesticSupply" step="0.01" min="0"></div>
+      <div class="field"><label for="recoveryRate">回收率 (%，常用 80~100)</label><input type="number" id="recoveryRate" step="1" min="0" max="100"></div>
+      <div class="field"><label for="blackRatio">其中糞便污水占比 (%)　—　污廢分流時決定化糞池規模</label><input type="number" id="blackRatio" step="5" min="0" max="100"></div>
     </div>
-    <div class="result-row"><span class="lbl">生活污水量</span><span class="val" id="outDomesticSewage">0.00<span>M³/日</span></span></div>
+    <div class="result-row"><span class="lbl">生活污水量（污水 / 雜排水）</span><span class="val sm" id="outDomesticSewage">—</span></div>
+    <div id="domChecks"></div>
   </div>
 
   <!-- STEP 2 -->
   <div class="step">
-    <div class="step-head"><span class="step-num">②</span><h2>製程/設備廢水量</h2></div>
-    <div class="step-sub">冷卻水塔排放(blowdown)、空調凝結水、實驗室廢水、緊急發電機油槽區廢水等。須取自機電負載計算書，與用水平衡圖排放欄一致。</div>
-    <div class="field"><label>製程廢水量（M³/日，如冷卻水塔 BD）</label><input type="number" id="processWaste" step="0.1" value="108.5"></div>
-    <div class="result-row"><span class="lbl">污水系統總排放量</span><span class="val" id="outTotalSewage">0.00<span>M³/日</span></span></div>
+    <div class="step-head"><span class="step-num">②</span><h2>製程／設備廢水量與排放時間分布</h2></div>
+    <div class="step-sub">冷卻水塔排放(blowdown)、空調凝結水、實驗室廢水、發電機油槽區廢水等。<b>排放時間分布比日總量更決定泵浦選型</b> — 同樣 108.5 M³/日，連續 24 小時排放只要 4.5 m³/h 的泵，但若每天集中 1 小時排完就需要 108 m³/h。</div>
+    <div class="grid3">
+      <div class="field"><label for="processWaste">製程廢水量 (M³/日)</label><input type="number" id="processWaste" step="0.1" min="0"></div>
+      <div class="field"><label for="procMode">排放模式</label>
+        <select id="procMode">
+          <option value="cont">連續（24 小時均勻）</option>
+          <option value="batch">間歇（集中在數小時內）</option>
+        </select>
+      </div>
+      <div class="field"><label for="procHours">間歇排放時數 (小時/日)</label><input type="number" id="procHours" step="0.5" min="0.1"></div>
+    </div>
+    <div class="result-row primary"><span class="lbl">污水系統總排放量（日）</span><span class="val" id="outTotalSewage">—</span></div>
   </div>
 
-  <!-- STEP 3: balance check -->
+  <!-- STEP 3 -->
   <div class="step">
-    <div class="step-head"><span class="step-num">③</span><h2>用水/排水平衡勾稽</h2></div>
-    <div class="step-sub">驗證「進水量 = 排放量 + 蒸發等損失量」是否勾稽一致 — 這是業主/審查機關最常追問的地方，任何對不上的差額都要能說明原因。</div>
+    <div class="step-head"><span class="step-num">③</span><h2>用水／排水平衡勾稽</h2></div>
+    <div class="step-sub">驗證「進水量 = 排放量 + 蒸發等損失」。這是業主與審查機關最常追問的地方，任何對不上的差額都要能說明原因。</div>
     <div class="grid2">
-      <div class="field"><label>自來水總引入量（M³/日）</label><input type="number" id="totalIntake" step="0.1" value="451.4"></div>
-      <div class="field"><label>其他損失量（蒸發等，不進污水系統，M³/日）</label><input type="number" id="otherLoss" step="0.1" value="335"></div>
+      <div class="field"><label for="totalIntake">自來水總引入量 (M³/日)</label><input type="number" id="totalIntake" step="0.1" min="0"></div>
+      <div class="field"><label for="otherLoss">不進污水系統的損失量（蒸發、飛濺、澆灌等，M³/日）</label><input type="number" id="otherLoss" step="0.1" min="0"></div>
     </div>
     <div id="balanceCheck"></div>
   </div>
 
   <!-- STEP 4 -->
   <div class="step">
-    <div class="step-head"><span class="step-num">④</span><h2>化糞池/污水處理設施容量選型</h2></div>
-    <div class="step-sub">以服務人數（人份）對應處理水量查廠商/環保署認可規格表；基準約 0.25 M³/人日（250L/人日），與給水人均基準交叉核對。</div>
-    <div class="formula-line">建議處理容量 = 服務人數 × 單位水量基準</div>
+    <div class="step-head"><span class="step-num">④</span><h2>尖峰排放流量</h2></div>
+    <div class="step-sub">泵浦、管徑、處理設施水力負荷都要用<b>尖峰流量</b>，不是日平均。生活污水有明顯人為作息尖峰（尖峰係數 2~4），製程廢水則看排放模式。原版工具直接用「日量 ÷ 時數」得到平均值，會嚴重低估。</div>
+    <div class="formula-line">Q<sub>尖峰</sub> = (生活污水/日 ÷ 24) × 尖峰係數 ＋ 製程廢水尖峰流量　　｜　Harmon: PF = 1 + 14 ÷ (4 + √(人口/1000))</div>
     <div class="grid3">
-      <div class="field"><label>服務人數（人）</label><input type="number" id="septicPop" step="1" value="75"></div>
-      <div class="field"><label>單位水量基準（M³/人日）</label><input type="number" id="septicUnit" step="0.01" value="0.25"></div>
-      <div class="field"><label>或直接輸入污水量反算人份（M³/日，留空則用②總量）</label><input type="number" id="septicFromQ" step="0.1" placeholder="留空使用總排放量"></div>
+      <div class="field"><label for="pfMode">生活污水尖峰係數</label>
+        <select id="pfMode">
+          <option value="harmon">Harmon 式（依服務人數）</option>
+          <option value="manual">手動指定</option>
+        </select>
+      </div>
+      <div class="field"><label for="pfManual">尖峰係數值</label><input type="number" id="pfManual" step="0.1" min="1"></div>
+      <div class="field"><label for="pfCap">尖峰係數上限</label><input type="number" id="pfCap" step="0.5" min="1"></div>
     </div>
-    <div class="result-row"><span class="lbl">建議處理容量（由人數） / 反算人份（由污水量）</span><span class="val" id="outSeptic" style="font-size:16px;">— / —<span></span></span></div>
-    <details class="refs">
-      <summary>參考規格表（廠商範例，實際選型需以認可廠商規格書為準）</summary>
-      <table class="ref-table">
-        <tr><th>型號</th><th>處理水量(M³/日)</th><th>參考服務人數</th></tr>
-        <tr><td>6 人份型</td><td class="n-val">1.5</td><td>6</td></tr>
-        <tr><td>DFF-025</td><td class="n-val">6.25</td><td>25</td></tr>
-        <tr><td>DFF-050</td><td class="n-val">12.5</td><td>50</td></tr>
-        <tr><td>DFF-075</td><td class="n-val">18.75</td><td>75</td></tr>
-        <tr><td>DFF-100</td><td class="n-val">25.0</td><td>100</td></tr>
-      </table>
-      <div class="src-list">數值示意依 0.25 M³/人日（250L/人日）基準線性推算，實際廠商型號級距、FRP材質規範(CNS11659)、人孔蓋(CNS2472)等須另外確認。</div>
-    </details>
+    <div class="result-row"><span class="lbl">生活尖峰 / 製程尖峰 / 合計尖峰</span><span class="val sm" id="outPeak">—</span></div>
+    <div id="peakChecks"></div>
   </div>
 
   <!-- STEP 5 -->
   <div class="step">
-    <div class="step-head"><span class="step-num">⑤</span><h2>集水坑抽水泵浦（無法重力排水時）</h2></div>
-    <div class="step-sub">地下室或低於放流點高程之區域，污水無法重力排放，需設集水坑+沉水式污水泵浦，兩台一組交替運轉（N+1備援）。</div>
+    <div class="step-head"><span class="step-num">⑤</span><h2>化糞池／污水處理設施規模</h2></div>
+    <div class="step-sub">兩種選型邏輯要分清楚：<b>處理設施</b>（接觸曝氣式等）以「處理水量 M³/日」對應型號；<b>容積式化糞池</b>以「有效容積 = 設計人口 × 每人每日污水量 × 停留時間」計算。設計人口有法定計算方式，不能自己抓。</div>
     <div class="grid3">
-      <div class="field"><label>本分區污水量（M³/日）</label><input type="number" id="pitDailyQ" step="0.1" value="100"></div>
-      <div class="field"><label>目標抽水時段（小時/日，設備實際運轉時數）</label><input type="number" id="pitHours" step="0.5" value="8"></div>
-      <div class="field"><label>放流點揚程（m）</label><input type="number" id="pitHead" step="0.5" value="5"></div>
+      <div class="field"><label for="popMode">設計人口來源</label>
+        <select id="popMode">
+          <option value="manual">直接輸入（依法定設計人口計算表）</option>
+          <option value="area">由樓地板面積 × 人員密度推估</option>
+          <option value="flow">由污水量 ÷ 人均基準反推</option>
+        </select>
+      </div>
+      <div class="field"><label for="septicPop">設計人口 (人)</label><input type="number" id="septicPop" step="1" min="0"></div>
+      <div class="field"><label for="septicUnit">人均污水量基準 (M³/人日)</label><input type="number" id="septicUnit" step="0.01" min="0.01"></div>
     </div>
-    <div class="result-row"><span class="lbl">建議泵浦流量 Q（每台，2台一組交替運轉）</span><span class="val" id="outPitQ">0.00<span>m³/h</span></span></div>
-    <div class="sub-hint">此為概估：以目標抽水時段內排空當日污水量估算單台流量，並假設 2 台一組（一運轉一備援）。實際集水坑容量須另計最小啟閉週期水量，避免泵浦頻繁啟閉造成馬達過熱。</div>
+    <div class="grid3">
+      <div class="field"><label for="popArea">樓地板面積 (m²)</label><input type="number" id="popArea" step="1" min="0"></div>
+      <div class="field"><label for="popDensity">人員密度 (人/m²)</label><input type="number" id="popDensity" step="0.01" min="0"></div>
+      <div class="field"><label for="septicRetention">化糞池停留時間 (日)</label><input type="number" id="septicRetention" step="0.5" min="0.1"></div>
+    </div>
+    <div class="result-row"><span class="lbl">處理水量需求 / 化糞池有效容積</span><span class="val sm" id="outSeptic">—</span></div>
+    <div id="septicChecks"></div>
+    <details class="sub">
+      <summary>規格對照（線性示意，非任何廠商實際型錄）</summary>
+      <table class="ref-table" id="septicTable">
+        <thead><tr><th>型號示例</th><th>處理水量 (M³/日)</th><th>參考服務人數</th><th>判定</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="src-list">上表依 0.25 M³/人日基準線性推算，僅供抓級距。實際選型須以環境部認可登記之廠商型錄為準，並確認 FRP 材質符合 CNS 11659（抗拉／抗折強度、玻纖含量、耐藥品性）、人孔蓋符合 CNS 2472 氣密式、生物擔體比表面積等規範要求。</div>
+    </details>
   </div>
 
-  <!-- STEP 6: DFU reference -->
+  <!-- STEP 6 -->
   <div class="step">
-    <div class="step-head"><span class="step-num">⑥</span><h2>器具排水單位（DFU）概估（僅供參考）</h2></div>
-    <div class="step-sub">各衛生器具依排水特性賦予「器具排水單位」，加總後查當地建築技術規則/CNS 3620 現行版本對照表決定管徑。下表數值為常見量級參考，<b style="color:var(--amber)">正式管徑設計務必以當地主管建築機關認可對照表為準</b>。</div>
-    <table class="rows-table">
-      <thead><tr><th style="width:34%">器具</th><th style="width:20%">數量</th><th style="width:20%">參考DFU/具</th><th style="width:26%">小計DFU</th></tr></thead>
-      <tbody id="dfuRows"></tbody>
-    </table>
-    <div class="result-row"><span class="lbl">總器具排水單位 ΣDFU</span><span class="val" id="outDfuTotal">0<span>DFU</span></span></div>
+    <div class="step-head"><span class="step-num">⑥</span><h2>集水坑抽水泵浦與坑體容積</h2></div>
+    <div class="step-sub">低於放流點高程的區域無法重力排放，需設集水坑＋沉水式污水泵浦。泵浦流量要能吃下<b>尖峰入流</b>；坑體有效容積則由<b>最小啟閉週期</b>決定 — 容積太小會讓馬達頻繁啟停過熱燒毀，這是實務上最常見的失效模式。</div>
+    <div class="formula-line">Q<sub>泵</sub> ≥ Q<sub>尖峰入流</sub>　｜　V<sub>有效</sub> = Q<sub>泵</sub> × t<sub>週期</sub> ÷ 4　｜　H = 靜揚程 + 摩擦損失　｜　P = (1000·Q·H) ÷ (75·E) × 裕餘</div>
+    <div class="grid4">
+      <div class="field"><label for="pitQmode">本坑尖峰入流</label>
+        <select id="pitQmode">
+          <option value="auto">＝④算出的合計尖峰</option>
+          <option value="manual">手動指定本分區流量</option>
+        </select>
+      </div>
+      <div class="field"><label for="pitQman">指定入流 (m³/h)</label><input type="number" id="pitQman" step="1" min="0"></div>
+      <div class="field"><label for="pumpQ">選用泵浦流量 (m³/h，每台)</label><input type="number" id="pumpQ" step="1" min="0"></div>
+      <div class="field"><label for="cycleMin">最小啟閉週期 (分)</label><input type="number" id="cycleMin" step="1" min="1"></div>
+    </div>
+    <div class="grid4">
+      <div class="field"><label for="pitStatic">靜揚程（放流點高差 m）</label><input type="number" id="pitStatic" step="0.5" min="0"></div>
+      <div class="field"><label for="pitLen">排放管長 L (m)</label><input type="number" id="pitLen" step="1" min="0"></div>
+      <div class="field"><label for="pitD">排放管徑 D (mm)</label><input type="number" id="pitD" step="5" min="10"></div>
+      <div class="field"><label for="pitEff">泵浦總效率 E</label><input type="number" id="pitEff" step="0.05" min="0.05" max="1"></div>
+    </div>
+    <div class="result-row"><span class="lbl">管內流速 / 摩擦損失 / 總揚程 H</span><span class="val sm" id="outPitHead">—</span></div>
+    <div class="result-row primary"><span class="lbl">泵浦軸馬力（每台）／集水坑最小有效容積</span><span class="val" id="outPitPump">—</span></div>
+    <div id="pitChecks"></div>
   </div>
 
-  <div class="notice info">
-    <span>ℹ️</span>
-    <span><b>雨污分流</b>：雨水管與污水管路徑、材質須分開標示，不得誤接混流（本案污水管採硬質 PVC 橘紅色管）。雨水設計流量請改用「雨水排水設計流量計算機」（合理化公式 Q=CIA/360）獨立計算。</span>
+  <!-- STEP 7 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">⑦</span><h2>器具排水單位 ΣDFU 與管徑對照</h2></div>
+    <div class="step-sub">各衛生器具依排水特性賦予「器具排水單位」，加總後查對照表決定管徑。<b>下表的容許 DFU 值是國際慣用量級（IPC/UPC 系）</b>，台灣送審須改用當地建築主管機關認可之對照表 — 欄位可直接改成你查到的法定值。</div>
+    <div class="table-scroll">
+      <table class="rows-table">
+        <caption class="sr-only">衛生器具數量與排水單位</caption>
+        <thead><tr><th style="width:32%">器具</th><th style="width:20%">數量</th><th style="width:22%">DFU/具</th><th style="width:20%">小計</th><th style="width:6%"></th></tr></thead>
+        <tbody id="dfuRows"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" id="dfuAddRow" type="button">＋ 新增器具</button>
+    <div class="grid2" style="margin-top:14px;">
+      <div class="field"><label for="dfuTarget">查表對象</label>
+        <select id="dfuTarget">
+          <option value="branch">排水橫支管／橫主管</option>
+          <option value="stack">排水立管（3 層以下）</option>
+        </select>
+      </div>
+      <div class="field"><label for="dfuSlope">配管坡度 1/___（僅供坡度合規檢核）</label><input type="number" id="dfuSlope" step="10" min="1"></div>
+    </div>
+    <div class="result-row primary"><span class="lbl">ΣDFU → 建議最小管徑</span><span class="val" id="outDfu">—</span></div>
+    <div id="dfuChecks"></div>
+    <details class="sub">
+      <summary>DFU → 管徑容許量對照（可直接改成你查到的法定值）</summary>
+      <div class="table-scroll">
+        <table class="rows-table">
+          <thead><tr><th style="width:34%">管徑 (mm)</th><th style="width:33%">橫支管容許 DFU</th><th style="width:33%">立管容許 DFU</th></tr></thead>
+          <tbody id="capRows"></tbody>
+        </table>
+      </div>
+      <div class="sub-hint">來源：IPC/UPC 慣用量級。台灣依「下水道用戶排水設備標準」、CNS 3620 及各地方主管機關內規，數值可能不同，<b>送審前務必逐案查核當地現行版本</b>。另注意：75 mm 橫支管一般限接 2 個大便器以內，此限制未寫進上表。</div>
+    </details>
   </div>
+
 
   <details class="refs">
-    <summary>參考來源</summary>
+    <summary>參考來源、坡度規定與已知陷阱</summary>
+    <table class="ref-table">
+      <caption class="sr-only">排水橫管坡度規定</caption>
+      <thead><tr><th>管徑 (mm)</th><th>§4.2.3 條文最小坡度</th><th>表 4-1 標準坡度 / 最小坡度</th></tr></thead>
+      <tbody>
+        <tr><td>30 ~ 65</td><td class="n-val">1/50</td><td class="n-val">1/25~1/50 ／ 1/50</td></tr>
+        <tr><td>75</td><td class="n-val">1/50</td><td class="n-val">1/50 ／ 1/100</td></tr>
+        <tr><td>100</td><td class="n-val">1/100</td><td class="n-val">1/50~1/100 ／ 1/150</td></tr>
+        <tr><td>125</td><td class="n-val">1/100</td><td class="n-val">1/50~1/100 ／ 1/150</td></tr>
+        <tr><td>150</td><td class="n-val">1/100</td><td class="n-val">— ／ 1/200</td></tr>
+        <tr><td>200 以上</td><td class="n-val">1/100</td><td class="n-val">最小流速 ≥ 0.6 m/s 時坡度可較平緩（§4.2.6）</td></tr>
+      </tbody>
+    </table>
     <div class="src-list">
-      生活污水量估算邏輯：生活污水排放量 ≈ 生活給水量 × 回收率（80~100%），依台灣自來水公司/下水道機構送審慣例。<br>
-      化糞池/處理設施基準 0.25 M³/人日（250L/人日）：與給水計算 V1 人均用水基準（250 L/人日）一致，為送審交叉核對關鍵點。<br>
-      集水坑抽水泵浦配置原則：兩台一組交替運轉，互為備援（N+1），依各分區匯集污水量與放流點高程差決定容量與揚程。<br>
-      器具排水單位/管徑對照：內政部/地方下水道主管機關「下水道用戶排水設備標準」、CNS 3620，各地現行版本可能不同，套用新案前務必重新查核。<br>
-      範例數值來源：龍慶 27MW 案 MIC-VB-DS-DWG-0001 污排水系統設計圖說 C 版（2026/07/31）、MIC-VB-WS-DWG-0003 用水平衡圖 A 版（2026/07/31）。
+      <b>坡度：</b>《建築物給水排水設備設計技術規範》§4.2.3「管徑小於 75 公釐（含）時坡度不得小於 1/50，超過 75 公釐時不得小於 1/100」；表 4-1 另列較寬鬆的最小坡度，§4.2.6 允許管徑 ≥200 mm 且流速 ≥0.6 m/s 時坡度較平緩。條文與表格之間存在落差，設計時建議以條文（較嚴）為準並在計算書內註明依據。排水管最小管徑 30 mm（§4.1.2）。<br>
+      <b>器具排水單位：</b>§4.2.1「估算衛生設備排水量之數值稱為排水設備單位」，§4.2.2「立管管徑不得小於接入該管之最大橫支管管徑」；完整對照表在規範附錄第 3 章，各地方主管機關另有內規。<br>
+      <b>尖峰係數：</b>Harmon 式 PF = 1 + 14/(4+√(P/1000))，P 為服務人數；小型建築常直接取 3~4。製程廢水（如冷卻水塔 blowdown）通常不適用人為作息尖峰係數，應依實際排放時程決定。<br>
+      <b>集水坑有效容積：</b>V = Q<sub>泵</sub> × t<sub>週期</sub> ÷ 4。此式來自「入流 = 泵浦流量的一半時，啟閉週期最短」的極值條件，是水泵坑設計的標準做法。t<sub>週期</sub> 由馬達每小時容許啟動次數決定（小型沉水泵常取 10~15 次/hr → 週期 4~6 分）。<br>
+      <b>⚠ 已知陷阱（本工具已處理）：</b><br>
+      　1. <b>「日污水量 ÷ 抽水時數」不是泵浦流量。</b>那是平均值。泵浦必須吃得下尖峰入流，否則坑體溢流。<br>
+      　2. <b>製程廢水的排放時間分布決定一切。</b>本案 blowdown 108.5 M³/日，若連續排放僅需 4.5 m³/h，但若集中 1 小時排完就需要約 108 m³/h — 這正是圖說上放流採樣井選用 Q=100 m³/h 泵浦的量級。單看日總量會差 20 倍以上。<br>
+      　3. <b>放流點揚程必須進入計算。</b>原版把它做成輸入欄位卻完全沒有使用，馬力算不出來。<br>
+      　4. <b>化糞池「容積」與處理設施「處理水量」是兩件事</b>，單位分別是 M³ 與 M³/日，不可混用。<br>
+      <b>範例數值來源：</b>龍慶 27MW 案 MIC-VB-DS-DWG-0001 污排水系統設計圖說 C 版、MIC-VB-DS-DWG-0002 污水納管送審圖說 B 版、MIC-VB-WS-DWG-0003 用水平衡圖（生活 7.9＋blowdown 108.5＝納管 116.4 噸/日）。<br>
+      <b>不在本工具範圍：</b>通氣管系統設計（每一存水彎均須有對應通氣，是排水系統能否正常運作的關鍵，須另行核算）、油脂截留器、放流水質處理與採樣設施、廢水分流後的個別處理需求。
     </div>
   </details>
 
-  <footer class="credit">SEWAGE &amp; WASTEWATER · 污水量=給水量×回收率 · 化糞池=人數×0.25 M³/人日</footer>
+  <footer class="credit">SEWAGE &amp; WASTEWATER · Q<sub>尖峰</sub> = 生活÷24×PF + 製程尖峰 · V<sub>坑</sub> = Q<sub>泵</sub>·t/4 · P = 1000QH/(75E)×裕餘</footer>
 </div>
 
 <script>
-// ---------- State ----------
-let state = {
-  domesticSupply: 7.96, recoveryRate: 100,
-  processWaste: 108.5,
-  totalIntake: 451.4, otherLoss: 335,
-  septicPop: 75, septicUnit: 0.25, septicFromQ: null,
-  pitDailyQ: 100, pitHours: 8, pitHead: 5,
-  dfuRows: [
-    {label:'坐式馬桶 WC', count:0, dfu:4},
-    {label:'小便器 UR', count:0, dfu:2},
-    {label:'洗臉盆 LAV', count:0, dfu:2},
-    {label:'地板落水頭 FD', count:0, dfu:2},
-    {label:'茶水間洗槽 KT', count:0, dfu:2},
-  ],
-};
 
+/* ══ 共用工具函式 ══════════════════════════════════════════════ */
 function fmt(x, d){
-  if(x===null || x===undefined || !isFinite(x)) return '—';
+  if(x===null || x===undefined || typeof x!=='number' || !isFinite(x)) return '—';
   return x.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
 }
+function num(v, fallback){
+  const n = parseFloat(v);
+  return isFinite(n) ? n : (fallback===undefined ? NaN : fallback);
+}
+function $(id){ return document.getElementById(id); }
 
-// ---------- Pure calc ----------
-function calcDomesticSewage(supply, recoveryPct){ return supply * (recoveryPct/100); }
-function calcTotalSewage(domestic, process){ return domestic + process; }
-function calcSepticCapacity(pop, unit){ return pop * unit; }
-function calcSepticPopFromQ(q, unit){ return unit>0 ? q/unit : NaN; }
-function calcPitPumpQ(dailyQm3, hours){ return hours>0 ? dailyQm3/hours : NaN; } // m3/h per duty pump
+/* 依「取最接近但不小於計算值」的原則挑標準管徑（管徑只能往上取，不能往下） */
+function parseSizes(str){
+  return String(str).split(/[,，\s]+/).map(s=>parseFloat(s)).filter(n=>isFinite(n)&&n>0).sort((a,b)=>a-b);
+}
+function nextStandard(list, value){
+  const arr = Array.isArray(list) ? list : parseSizes(list);
+  if(!arr.length || !isFinite(value)) return null;
+  for(const s of arr){ if(s >= value - 1e-9) return s; }
+  return null;              // 超出表列範圍 → 回 null，讓 UI 明確講「超出對照表」
+}
 
-// ---------- Step 1/2/3 ----------
-['domesticSupply','recoveryRate','processWaste','totalIntake','otherLoss'].forEach(id=>{
-  document.getElementById(id).oninput = e=>{ state[id] = parseFloat(e.target.value); render(); };
-});
-
-// ---------- Step 4 ----------
-['septicPop','septicUnit'].forEach(id=>{
-  document.getElementById(id).oninput = e=>{ state[id] = parseFloat(e.target.value)||0; render(); };
-});
-document.getElementById('septicFromQ').oninput = e=>{
-  state.septicFromQ = e.target.value==='' ? null : parseFloat(e.target.value);
-  render();
-};
-
-// ---------- Step 5 ----------
-['pitDailyQ','pitHours','pitHead'].forEach(id=>{
-  document.getElementById(id).oninput = e=>{ state[id] = parseFloat(e.target.value)||0; render(); };
-});
-
-// ---------- Step 6 DFU ----------
-function renderDfuRows(){
-  const tbody = document.getElementById('dfuRows');
-  tbody.innerHTML = '';
-  state.dfuRows.forEach((r,i)=>{
-    const sub = r.count * r.dfu;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="text" data-i="${i}" data-f="label" value="${r.label}"></td>
-      <td><input type="number" data-i="${i}" data-f="count" value="${r.count}" step="1" min="0"></td>
-      <td><input type="number" data-i="${i}" data-f="dfu" value="${r.dfu}" step="1" min="0"></td>
-      <td class="sub-hint" style="font-family:'IBM Plex Mono',monospace; color:var(--text);">${fmt(sub,0)}</td>
-    `;
-    tbody.appendChild(tr);
+/* 綁定數字/文字輸入：不重建 DOM，因此不會失焦。
+   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。 */
+function bindInput(el, getter, commit, opts){
+  if(!el) return;
+  opts = opts || {};
+  el.value = getter();
+  el.addEventListener('input', ()=>{
+    commit(el.type==='number' ? num(el.value, NaN) : el.value, el);
+    if(opts.markDirty) el.classList.add('dirty');
+    render();
   });
-  tbody.querySelectorAll('input').forEach(inp=>{
-    inp.addEventListener('input', e=>{
-      const i = +e.target.dataset.i, f = e.target.dataset.f;
-      state.dfuRows[i][f] = (f==='label') ? e.target.value : (parseFloat(e.target.value)||0);
-      renderDfuRows(); render();
-    });
+  /* 失焦時才做正規化（把 NaN/空白補回上一個有效值），避免打字打到一半被改掉 */
+  el.addEventListener('blur', ()=>{
+    const v = getter();
+    if(el.type==='number' && (el.value==='' || !isFinite(num(el.value,NaN)))){
+      el.value = (v===null||v===undefined||!isFinite(v)) ? '' : v;
+    }
   });
 }
 
-// ---------- Master render ----------
-function render(){
-  const domesticSewage = calcDomesticSewage(state.domesticSupply||0, state.recoveryRate||0);
-  document.getElementById('outDomesticSewage').innerHTML = fmt(domesticSewage,2)+'<span>M³/日</span>';
-
-  const totalSewage = calcTotalSewage(domesticSewage, state.processWaste||0);
-  document.getElementById('outTotalSewage').innerHTML = fmt(totalSewage,2)+'<span>M³/日</span>';
-
-  // balance check
-  const bc = document.getElementById('balanceCheck');
-  bc.innerHTML = '';
-  const expectedIntake = totalSewage + (state.otherLoss||0);
-  const diff = (state.totalIntake||0) - expectedIntake;
-  const tolerant = Math.abs(diff) <= Math.max(0.5, expectedIntake*0.02);
-  addCheck(bc, tolerant,
-    `進水量 ${fmt(state.totalIntake,2)} M³/日 ≈ 排放量+損失量 ${fmt(expectedIntake,2)} M³/日（污水${fmt(totalSewage,2)}＋損失${fmt(state.otherLoss,2)}），差額 ${fmt(diff,2)} M³/日 ${tolerant?'（勾稽一致）':'（有落差，需說明原因，如澆灌/清洗等一次性用水）'}`,
-    tolerant ? 'pass' : 'warn');
-
-  // septic
-  const capFromPop = calcSepticCapacity(state.septicPop||0, state.septicUnit||0);
-  const qForPop = (state.septicFromQ!=null && !isNaN(state.septicFromQ)) ? state.septicFromQ : totalSewage;
-  const popFromQ = calcSepticPopFromQ(qForPop, state.septicUnit||0);
-  document.getElementById('outSeptic').innerHTML = `${fmt(capFromPop,2)} M³/日 / ${fmt(popFromQ,0)} 人份`;
-
-  // pit pump
-  const pitQ = calcPitPumpQ(state.pitDailyQ||0, state.pitHours||0);
-  document.getElementById('outPitQ').innerHTML = fmt(pitQ,3)+'<span>m³/h</span>';
-
-  // DFU total
-  const dfuTotal = state.dfuRows.reduce((s,r)=>s+r.count*r.dfu,0);
-  document.getElementById('outDfuTotal').innerHTML = fmt(dfuTotal,0)+'<span>DFU</span>';
-
-  // summary strip
-  const sum = document.getElementById('summary');
-  sum.innerHTML = `
-    <div class="sum-item"><div class="k">污水系統總排放量</div><div class="v">${fmt(totalSewage,2)}<span>M³/日</span></div></div>
-    <div class="sum-item"><div class="k">化糞池建議容量</div><div class="v">${fmt(capFromPop,2)}<span>M³/日</span></div></div>
-    <div class="sum-item"><div class="k">用水/排水平衡</div><div class="v">${tolerant?'勾稽一致':'有落差'}<span></span></div></div>
-  `;
-
-  writeHash();
-}
-function addCheck(container, pass, html, kind){
-  const cls = kind || (pass?'pass':'fail');
-  const icon = cls==='pass' ? '✓' : (cls==='warn' ? '!' : '✕');
+/* 檢核列 */
+function addCheck(container, kind, html){
+  const icon = {pass:'✓', fail:'✕', warn:'!', info:'i'}[kind] || 'i';
   const d = document.createElement('div');
-  d.className = 'check ' + cls;
-  d.innerHTML = `<span class="icon">${icon}</span><span class="txt">${html}</span>`;
+  d.className = 'check ' + kind;
+  d.innerHTML = '<span class="icon" aria-hidden="true">'+icon+'</span><span class="txt">'+html+'</span>';
   container.appendChild(d);
+  return d;
 }
+function ck(cond){ return cond ? 'pass' : 'fail'; }
 
-// ---------- 分享 / 列印 ----------
-document.getElementById('btnShare').onclick = async function(){
-  writeHash();
-  const btn = this; const url = location.href;
-  try{ await navigator.clipboard.writeText(url); }
-  catch(e){
-    const ta = document.createElement('textarea');
-    ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(_){ prompt('複製這段網址：', url); }
-    document.body.removeChild(ta);
+/* ══ 網址狀態同步 ══════════════════════════════════════════════
+   只寫「與預設值不同」的欄位，並且 debounce，
+   避免每個 keystroke 都打一次 history API（舊版會拖慢輸入並塞爆網址）。 */
+let _hashTimer = null;
+function serialize(state, defaults){
+  const diff = {};
+  for(const k of Object.keys(state)){
+    if(JSON.stringify(state[k]) !== JSON.stringify(defaults[k])) diff[k] = state[k];
   }
-  btn.textContent = '已複製連結'; btn.classList.add('done');
-  setTimeout(()=>{ btn.textContent='複製分享連結'; btn.classList.remove('done'); }, 2000);
-};
-document.getElementById('btnPrint').onclick = ()=> window.print();
-
-// ---------- 網址狀態同步 ----------
+  return Object.keys(diff).length ? btoa(unescape(encodeURIComponent(JSON.stringify(diff)))) : '';
+}
 function writeHash(){
-  const p = new URLSearchParams();
-  p.set('s', JSON.stringify(state));
-  history.replaceState(null, '', '#' + p.toString());
+  clearTimeout(_hashTimer);
+  _hashTimer = setTimeout(()=>{
+    const s = serialize(state, DEFAULTS);
+    history.replaceState(null, '', s ? '#s='+s : location.pathname + location.search);
+  }, 250);
 }
 function readHash(){
-  if(!location.hash || location.hash.length<2) return;
-  const p = new URLSearchParams(location.hash.slice(1));
-  try{ if(p.has('s')) state = Object.assign(state, JSON.parse(p.get('s'))); }catch(e){}
+  if(!location.hash || location.hash.length < 3) return;
+  const raw = location.hash.slice(1);
+  const m = raw.match(/^s=(.*)$/);
+  try{
+    if(m){
+      Object.assign(state, JSON.parse(decodeURIComponent(escape(atob(m[1])))));
+    } else {
+      /* 相容舊版連結：#s=<原始 JSON> 或 ?s=... */
+      const p = new URLSearchParams(raw);
+      if(p.has('s')) Object.assign(state, JSON.parse(p.get('s')));
+      if(p.has('rows')) state.rows = JSON.parse(p.get('rows'));
+      if(p.has('idf'))  Object.assign(state.idf, JSON.parse(p.get('idf')));
+      if(p.has('im'))   state.iMode = p.get('im');
+      if(p.has('iman')) state.iManual = num(p.get('iman'), state.iManual);
+    }
+  }catch(e){ console.warn('網址參數解析失敗，改用預設值', e); }
 }
 
+/* ══ 分享 / 列印 / 重設 ═════════════════════════════════════════ */
+function initTopbar(){
+  const btnShare = $('btnShare');
+  if(btnShare) btnShare.onclick = async function(){
+    const s = serialize(state, DEFAULTS);
+    history.replaceState(null, '', s ? '#s='+s : location.pathname + location.search);
+    const url = location.href;
+    try{ await navigator.clipboard.writeText(url); }
+    catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(_){ window.prompt('複製這段網址：', url); }
+      document.body.removeChild(ta);
+    }
+    this.textContent = '已複製連結'; this.classList.add('done');
+    setTimeout(()=>{ this.textContent='複製分享連結'; this.classList.remove('done'); }, 2000);
+  };
+  const btnPrint = $('btnPrint');
+  if(btnPrint) btnPrint.onclick = ()=>{
+    document.querySelectorAll('details').forEach(d=>d.open = true);
+    window.print();
+  };
+  const btnReset = $('btnReset');
+  if(btnReset) btnReset.onclick = ()=>{
+    if(!window.confirm('把所有欄位回復成預設值？目前輸入會被清掉。')) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    location.reload();
+  };
+  const stamp = $('printStamp');
+  if(stamp) stamp.textContent = '產出時間 ' + new Date().toLocaleString('zh-TW', {hour12:false});
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   HYD-04 污廢水量、化糞池與集水坑泵浦
+   ══════════════════════════════════════════════════════════════ */
+const G = 9.8;
+
+const CALC = {
+  domestic(supply, recoveryPct){ return supply * (recoveryPct/100); },
+
+  /* Harmon 尖峰係數：PF = 1 + 14/(4 + √(P/1000))，P 為服務人數 */
+  harmonPF(pop){
+    if(!(pop>0)) return NaN;
+    return 1 + 14/(4 + Math.sqrt(pop/1000));
+  },
+
+  /* 尖峰流量 m³/h。生活污水套尖峰係數；製程廢水依排放模式攤在實際排放時數上 */
+  peakFlow(st, domesticDaily, pf){
+    const domPeak  = domesticDaily/24 * pf;
+    const procHrs  = st.procMode==='batch' ? Math.max(0.1, st.procHours) : 24;
+    const procPeak = st.processWaste / procHrs;
+    return { domPeak, procPeak, total: domPeak + procPeak, procHrs };
+  },
+
+  /* 集水坑有效容積：入流 = Q泵/2 時啟閉週期最短 → V = Q泵 · t / 4 */
+  pitVolume(pumpQm3h, cycleMin){
+    if(!(pumpQm3h>0) || !(cycleMin>0)) return NaN;
+    return pumpQm3h/60 * cycleMin / 4;   // m³
+  },
+  cycleTime(pumpQm3h, inflowM3h, volM3){
+    /* 實際週期 = 充水時間 + 排空時間（單台運轉） */
+    if(!(volM3>0) || !(pumpQm3h>inflowM3h) || !(inflowM3h>0)) return NaN;
+    return volM3/inflowM3h*60 + volM3/(pumpQm3h-inflowM3h)*60;  // 分
+  },
+
+  pipeVelocity(Qm3h, Dmm){
+    const A = Math.PI/4*Math.pow(Dmm/1000, 2);
+    return A>0 ? (Qm3h/3600)/A : NaN;
+  },
+  friction(L, Dmm, V, f){
+    const Dm = Dmm/1000;
+    return Dm>0 ? f*(L/Dm)*V*V/(2*G) : NaN;
+  },
+  pumpPS(Qm3h, H, E, margin){
+    if(!(E>0)) return NaN;
+    return (1000 * (Qm3h/3600) * H) / (75*E) * margin;
+  },
+};
+
+const DFU_CAP = [
+  {d:50,  branch:6,   stack:10},
+  {d:65,  branch:12,  stack:20},
+  {d:75,  branch:20,  stack:30},
+  {d:100, branch:160, stack:240},
+  {d:125, branch:360, stack:540},
+  {d:150, branch:620, stack:960},
+  {d:200, branch:1400,stack:2200},
+];
+
+const DEFAULTS = {
+  sys:'combined',
+  domesticSupply: 7.96, recoveryRate: 100, blackRatio: 40,
+  processWaste: 108.5, procMode:'batch', procHours: 1,
+  totalIntake: 451.4, otherLoss: 335,
+  pfMode:'harmon', pfManual: 3, pfCap: 4,
+  popMode:'manual', septicPop: 75, septicUnit: 0.25,
+  popArea: 663.64, popDensity: 0.12, septicRetention: 1,
+  pitQmode:'auto', pitQman: 100, pumpQ: 100, cycleMin: 6,
+  pitStatic: 5, pitLen: 30, pitD: 100, pitEff: 0.5, pitF: 0.025, pitMargin: 1.15,
+  dfuRows: [
+    {label:'坐式馬桶 WC',   count:4, dfu:4},
+    {label:'小便器 UR',     count:2, dfu:2},
+    {label:'洗臉盆 LAV',    count:4, dfu:2},
+    {label:'地板落水頭 FD', count:6, dfu:2},
+    {label:'茶水間洗槽 KT', count:2, dfu:2},
+  ],
+  dfuTarget:'branch', dfuSlope: 100,
+  caps: DFU_CAP.map(c=>({...c})),
+};
+let state = JSON.parse(JSON.stringify(DEFAULTS));
 readHash();
-document.getElementById('domesticSupply').value = state.domesticSupply;
-document.getElementById('recoveryRate').value = state.recoveryRate;
-document.getElementById('processWaste').value = state.processWaste;
-document.getElementById('totalIntake').value = state.totalIntake;
-document.getElementById('otherLoss').value = state.otherLoss;
-document.getElementById('septicPop').value = state.septicPop;
-document.getElementById('septicUnit').value = state.septicUnit;
-if(state.septicFromQ!=null) document.getElementById('septicFromQ').value = state.septicFromQ;
-document.getElementById('pitDailyQ').value = state.pitDailyQ;
-document.getElementById('pitHours').value = state.pitHours;
-document.getElementById('pitHead').value = state.pitHead;
-renderDfuRows();
-render();
+
+/* ══ DFU 表格（建列一次） ══ */
+function makeDfuRow(i){
+  const tr = document.createElement('tr');
+  tr._i = i;                 // 必須在 bindInput 之前設好
+  tr.innerHTML =
+    '<td><input type="text" aria-label="器具名稱"></td>'+
+    '<td><input type="number" step="1" min="0" aria-label="數量"></td>'+
+    '<td><input type="number" step="1" min="0" aria-label="每具DFU"></td>'+
+    '<td class="calc-cell sub">—</td>'+
+    '<td><button class="rm-btn" type="button" aria-label="刪除此列">×</button></td>';
+  const [iL,iC,iD] = tr.querySelectorAll('input');
+  tr._refs = {iL,iC,iD, sub:tr.querySelector('.sub')};
+  bindInput(iL, ()=>state.dfuRows[tr._i].label, v=>{ state.dfuRows[tr._i].label = v; });
+  bindInput(iC, ()=>state.dfuRows[tr._i].count, v=>{ state.dfuRows[tr._i].count = isFinite(v)?v:0; });
+  bindInput(iD, ()=>state.dfuRows[tr._i].dfu,   v=>{ state.dfuRows[tr._i].dfu   = isFinite(v)?v:0; });
+  tr.querySelector('.rm-btn').addEventListener('click', ()=>{ state.dfuRows.splice(tr._i,1); buildDfuRows(); render(); });
+  return tr;
+}
+function buildDfuRows(){
+  const tb = $('dfuRows'); tb.innerHTML='';
+  state.dfuRows.forEach((r,i)=>{ const tr=makeDfuRow(i); tb.appendChild(tr);
+    tr._refs.iL.value=r.label; tr._refs.iC.value=r.count; tr._refs.iD.value=r.dfu; });
+}
+function paintDfuRows(){
+  Array.from($('dfuRows').children).forEach((tr,i)=>{
+    tr._i=i; const r=state.dfuRows[i], f=tr._refs;
+    if(document.activeElement!==f.iL) f.iL.value=r.label;
+    if(document.activeElement!==f.iC) f.iC.value=r.count;
+    if(document.activeElement!==f.iD) f.iD.value=r.dfu;
+    f.sub.textContent = fmt(r.count*r.dfu, 0);
+  });
+}
+$('dfuAddRow').onclick = ()=>{
+  state.dfuRows.push({label:'新器具', count:0, dfu:2});
+  buildDfuRows(); render();
+  const rows=$('dfuRows').children; rows[rows.length-1]._refs.iL.focus();
+};
+
+/* ══ 容許量表格 ══ */
+function buildCapRows(){
+  const tb = $('capRows'); tb.innerHTML='';
+  state.caps.forEach((c,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="calc-cell" style="text-align:left">'+c.d+'</td>'+
+      '<td><input type="number" step="1" min="0" aria-label="橫支管容許DFU"></td>'+
+      '<td><input type="number" step="1" min="0" aria-label="立管容許DFU"></td>';
+    const [ib,is] = tr.querySelectorAll('input');
+    ib.value = c.branch; is.value = c.stack;
+    bindInput(ib, ()=>state.caps[i].branch, v=>{ state.caps[i].branch = isFinite(v)?v:0; });
+    bindInput(is, ()=>state.caps[i].stack,  v=>{ state.caps[i].stack  = isFinite(v)?v:0; });
+    tb.appendChild(tr);
+  });
+}
+
+/* ══ 綁定 ══ */
+$('sysCombined').onclick = ()=>{ state.sys='combined'; render(); };
+$('sysSeparate').onclick = ()=>{ state.sys='separate'; render(); };
+[['domesticSupply','domesticSupply'],['recoveryRate','recoveryRate'],['blackRatio','blackRatio'],
+ ['processWaste','processWaste'],['procHours','procHours'],['totalIntake','totalIntake'],['otherLoss','otherLoss'],
+ ['pfManual','pfManual'],['pfCap','pfCap'],['septicPop','septicPop'],['septicUnit','septicUnit'],
+ ['popArea','popArea'],['popDensity','popDensity'],['septicRetention','septicRetention'],
+ ['pitQman','pitQman'],['pumpQ','pumpQ'],['cycleMin','cycleMin'],['pitStatic','pitStatic'],
+ ['pitLen','pitLen'],['pitD','pitD'],['pitEff','pitEff'],['dfuSlope','dfuSlope']].forEach(([id,k])=>
+  bindInput($(id), ()=>state[k], v=>{ state[k] = isFinite(v)?v:0; }));
+['procMode','pfMode','popMode','pitQmode','dfuTarget'].forEach(id=>{
+  $(id).onchange = e=>{ state[id==='procMode'?'procMode':id] = e.target.value; render(); };
+});
+
+/* ══ 主 render ══ */
+function render(){
+  $('sysCombined').classList.toggle('active', state.sys==='combined');
+  $('sysSeparate').classList.toggle('active', state.sys==='separate');
+  ['procMode','pfMode','popMode','pitQmode','dfuTarget'].forEach(id=>{ $(id).value = state[id]; });
+  $('procHours').disabled = state.procMode!=='batch';
+  $('pfManual').disabled  = state.pfMode!=='manual';
+  $('pitQman').disabled   = state.pitQmode!=='manual';
+  $('septicPop').disabled = state.popMode!=='manual';
+  $('popArea').disabled = $('popDensity').disabled = state.popMode!=='area';
+
+  const sn = $('sysNote'); sn.innerHTML='';
+  if(state.sys==='combined'){
+    addCheck(sn,'info','<b>污廢合流</b>：糞便污水與雜排水（洗手台、茶水間、地板落水）同管收集，一起進污水處理設施後納管。台灣新建案在有公共污水下水道的地區最常見，本案（龍慶）即屬此類 — 全區匯至自設陰井兼採樣井後納管。此模式下處理設施要吃全部生活污水量。');
+  } else {
+    addCheck(sn,'info','<b>污廢分流</b>：糞便污水單獨進化糞池，雜排水另管直接排放或另行處理。化糞池只需依<b>糞便污水量</b>設計，規模較小，但雜排水的放流水質仍須符合當地標準，且兩套管路都要有完整通氣。');
+    addCheck(sn,'warn','分流架構下請確認：雜排水的放流去處是否經主管機關同意？若含廚房油脂需設油脂截留器。誤把雜排水接進雨水管是稽查最常開單的項目。');
+  }
+
+  /* ① 生活污水 */
+  const domSewage = CALC.domestic(state.domesticSupply, state.recoveryRate);
+  const black = domSewage * state.blackRatio/100, grey = domSewage - black;
+  $('outDomesticSewage').innerHTML = fmt(domSewage,2)+'<span>M³/日（糞便污水 '+fmt(black,2)+' ／ 雜排水 '+fmt(grey,2)+'）</span>';
+  const dch = $('domChecks'); dch.innerHTML='';
+  if(state.recoveryRate>=100) addCheck(dch,'info','回收率 100%：假設所有生活給水最終都進入污水系統。若有澆灌、地面清洗、蒸發性用水，回收率應下修（常用 80~100%），否則會高估污水量與處理設施規模。');
+
+  /* ② 總量 */
+  const totalSewage = domSewage + state.processWaste;
+  $('outTotalSewage').innerHTML = fmt(totalSewage,2)+'<span>M³/日（生活 '+fmt(domSewage,2)+' ＋ 製程 '+fmt(state.processWaste,2)+'）</span>';
+
+  /* ③ 平衡 */
+  const bc = $('balanceCheck'); bc.innerHTML='';
+  const expect = totalSewage + state.otherLoss;
+  const diff = state.totalIntake - expect;
+  const tol = Math.max(0.5, expect*0.02);
+  const okBal = Math.abs(diff) <= tol;
+  addCheck(bc, okBal?'pass':'warn',
+    '進水量 '+fmt(state.totalIntake,2)+' M³/日　vs　排放 '+fmt(totalSewage,2)+' ＋ 損失 '+fmt(state.otherLoss,2)+' ＝ '+fmt(expect,2)+' M³/日，差額 <b>'+fmt(diff,2)+'</b> M³/日（容許 ±'+fmt(tol,2)+'）'+
+    (okBal ? '　→　勾稽一致。' : '　→　<b>對不上</b>，需說明原因：澆灌／地面清洗／管線沖洗／消防測試等一次性用水，或製程用水的去向拆解有遺漏。'));
+  addCheck(bc,'info','送審提醒：這個「排放至納管」的數字必須與用水平衡圖、污水納管送審圖說、以及日後計量槽／採樣井的實測值三者一致。本案為 '+fmt(totalSewage,1)+' 噸/日。');
+
+  /* ④ 尖峰 */
+  const pop = getPop(totalSewage);
+  const pfRaw = state.pfMode==='harmon' ? CALC.harmonPF(pop) : state.pfManual;
+  const pf = Math.min(isFinite(pfRaw)?pfRaw:1, state.pfCap);
+  const PK = CALC.peakFlow(state, domSewage, pf);
+  $('outPeak').innerHTML = fmt(PK.domPeak,2)+' / '+fmt(PK.procPeak,2)+' / <b>'+fmt(PK.total,2)+'</b><span>m³/h</span>';
+  const pkc = $('peakChecks'); pkc.innerHTML='';
+  addCheck(pkc,'info','生活尖峰係數 = '+fmt(pf,2)+(state.pfMode==='harmon'?'（Harmon 式，服務人數 '+fmt(pop,0)+' 人，原式得 '+fmt(pfRaw,2)+'，受上限 '+state.pfCap+' 箝制）':'（手動指定）')+'。日平均僅 '+fmt(domSewage/24,2)+' m³/h，尖峰是它的 '+fmt(pf,1)+' 倍。');
+  if(state.procMode==='batch'){
+    addCheck(pkc,'warn','製程廢水設定為<b>間歇排放</b>，'+fmt(state.processWaste,1)+' M³ 集中在 '+fmt(PK.procHrs,1)+' 小時內排完 → '+fmt(PK.procPeak,1)+' m³/h。這一項通常主宰整個泵浦選型。冷卻水塔 blowdown 究竟是連續泄放還是定時排放，<b>必須向空調團隊確認</b>，兩者的泵浦規格可以差 20 倍。');
+  } else {
+    addCheck(pkc,'info','製程廢水設定為連續排放，'+fmt(state.processWaste,1)+' M³/日 ÷ 24 h = '+fmt(PK.procPeak,2)+' m³/h。若實際上是定時大量排放，請切到間歇模式重算。');
+  }
+
+  /* ⑤ 化糞池 */
+  const capNeed = pop * state.septicUnit;
+  const septicVol = pop * state.septicUnit * state.septicRetention;
+  const designQ = state.sys==='separate' ? black : domSewage;
+  $('septicPop').value = state.popMode==='manual' ? state.septicPop : Math.round(pop);
+  $('outSeptic').innerHTML = fmt(capNeed,2)+' M³/日　／　'+fmt(septicVol,2)+'<span>M³（停留 '+fmt(state.septicRetention,1)+' 日）</span>';
+  const sc = $('septicChecks'); sc.innerHTML='';
+  addCheck(sc,'info','設計人口 <b>'+fmt(pop,0)+' 人</b>（'+({manual:'直接輸入',area:'面積 '+fmt(state.popArea,0)+' m² × 密度 '+fmt(state.popDensity,2),flow:'污水量 ÷ 人均基準'}[state.popMode])+'）。<b>法定設計人口有其計算方式</b>（依建築物用途類組與樓地板面積查表），與給水計算的推估人數不見得相同，送審請以法定表為準。');
+  addCheck(sc, ck(capNeed >= designQ*0.999), '處理容量 '+fmt(capNeed,2)+' M³/日 '+(capNeed>=designQ*0.999?'涵蓋':'<b>小於</b>')+' 實際需處理水量 '+fmt(designQ,2)+' M³/日（'+(state.sys==='separate'?'污廢分流，只算糞便污水':'污廢合流，算全部生活污水')+'）。'+(capNeed<designQ*0.999?' 請提高設計人口或改選較大型號。':''));
+  addCheck(sc,'info','人均基準 '+fmt(state.septicUnit,2)+' M³/人日 應與給水計算的人均用水基準（本案 250 L/人日 = 0.25 M³）一致 — 這是送審交叉核對的關鍵點。');
+  if(state.processWaste>0) addCheck(sc,'warn','製程廢水 '+fmt(state.processWaste,1)+' M³/日 <b>不應</b>進入化糞池／生活污水處理設施（生物處理系統無法處理冷卻水塔藥劑、高導電度排放水）。它應直接進放流採樣井納管，並確認水質符合當地下水道納管標準。上面的處理容量不含這一項。');
+
+  const stb = $('septicTable').tBodies[0]; stb.innerHTML='';
+  [6,25,50,75,100,150,200].forEach(p=>{
+    const q = p*0.25;
+    const tr = document.createElement('tr');
+    const fit = q >= designQ*0.999;
+    tr.innerHTML = '<td>'+p+' 人份</td><td class="n-val">'+fmt(q,2)+'</td><td>'+p+'</td><td>'+(fit?'<span style="color:var(--good)">✓ 足夠</span>':'<span style="color:var(--bad)">✕ 不足</span>')+'</td>';
+    if(fit && q < designQ*0.999 + 0.25) tr.className='hi';
+    stb.appendChild(tr);
+  });
+
+  /* ⑥ 集水坑 */
+  const inflow = state.pitQmode==='auto' ? PK.total : state.pitQman;
+  const V = CALC.pipeVelocity(state.pumpQ, state.pitD);
+  const hf = CALC.friction(state.pitLen, state.pitD, V, state.pitF);
+  const H = state.pitStatic + hf + (isFinite(V)? V*V/(2*G) : 0);
+  $('outPitHead').innerHTML = fmt(V,2)+' m/s / '+fmt(hf,3)+' m / <b>'+fmt(H,2)+'</b><span>m</span>';
+  const PS = CALC.pumpPS(state.pumpQ, H, state.pitEff, state.pitMargin);
+  const Vpit = CALC.pitVolume(state.pumpQ, state.cycleMin);
+  $('outPitPump').innerHTML = fmt(PS,2)+' PS<span>＝'+fmt(PS*0.7355,2)+' kW　｜　V<sub>坑</sub> ≥ '+fmt(Vpit,2)+' m³</span>';
+  const pc = $('pitChecks'); pc.innerHTML='';
+  addCheck(pc, ck(state.pumpQ >= inflow), '泵浦流量 '+fmt(state.pumpQ,1)+' m³/h '+(state.pumpQ>=inflow?'足以吃下':'<b>小於</b>')+'尖峰入流 '+fmt(inflow,2)+' m³/h。'+(state.pumpQ<inflow?' 坑體會持續累積並溢流，必須加大泵浦或增加運轉台數。':' 餘裕 '+fmt(state.pumpQ-inflow,2)+' m³/h。'));
+  addCheck(pc,'info','集水坑<b>有效容積</b>（啟停水位之間）至少 '+fmt(Vpit,2)+' m³，對應每小時最多 '+fmt(60/state.cycleMin,0)+' 次啟動。容積不足會讓馬達頻繁啟停過熱 — 這是污水泵最常見的燒毀原因。此容積之外還要另留死水深（保護葉輪）與高水位緊急蓄容。');
+  if(isFinite(V)){
+    const okV = V>=0.6 && V<=3.0;
+    addCheck(pc, okV?'pass':'warn','排放管內流速 '+fmt(V,2)+' m/s。'+(V<0.6?'<b>低於 0.6 m/s</b>，固形物會沉積在壓送管內造成阻塞，污水壓送管建議 ≥0.6~0.9 m/s。':V>3?'<b>高於 3 m/s</b>，管件磨耗與水錘風險上升。':'落在建議範圍 0.6~3.0 m/s。'));
+  }
+  addCheck(pc,'info','此為單台軸馬力，實務採<b>兩台一組交替運轉</b>（N+1 互為備援），控制盤應具手動/自動切換、浮球液位控制、交替運轉、高水位遠端警報、電湧保護，戶外型須符合防護等級與欠相保護要求。');
+  if(state.pitEff>0.7) addCheck(pc,'warn','污水泵總效率 '+fmt(state.pitEff,2)+' 偏樂觀。沉水式污水泵因葉輪需通過固形物，效率一般低於清水泵，常見 0.4~0.6。');
+
+  /* ⑦ DFU */
+  paintDfuRows();
+  const dfuTotal = state.dfuRows.reduce((s,r)=>s + (r.count||0)*(r.dfu||0), 0);
+  const caps = state.caps.slice().sort((a,b)=>a.d-b.d);
+  const key = state.dfuTarget==='stack' ? 'stack' : 'branch';
+  const hit = caps.find(c => c[key] >= dfuTotal);
+  $('outDfu').innerHTML = fmt(dfuTotal,0)+' DFU → <b>'+(hit?fmt(hit.d,0)+' mm':'超出對照表')+'</b>';
+  const dc = $('dfuChecks'); dc.innerHTML='';
+  if(!hit) addCheck(dc,'fail','ΣDFU '+fmt(dfuTotal,0)+' 超出對照表最大容許量，請擴充表格或改採多管分流。');
+  else addCheck(dc,'pass','ΣDFU '+fmt(dfuTotal,0)+' ≤ '+fmt(hit[key],0)+'（'+fmt(hit.d,0)+' mm '+(key==='stack'?'立管':'橫支管')+'容許量），建議最小管徑 '+fmt(hit.d,0)+' mm。上一級距 '+(caps[caps.indexOf(hit)-1]?fmt(caps[caps.indexOf(hit)-1].d,0)+' mm 只能承受 '+fmt(caps[caps.indexOf(hit)-1][key],0)+' DFU':'—')+'。');
+  const dmm = hit ? hit.d : 150;
+  const sMin = dmm > 75 ? 100 : 50;   // §4.2.3：>75mm → 1/100；≤75mm → 1/50
+  addCheck(dc, ck(state.dfuSlope <= sMin), '坡度 1/'+fmt(state.dfuSlope,0)+' vs 規範最小坡度 1/'+sMin+'（§4.2.3，管徑 '+fmt(dmm,0)+' mm '+(dmm>75?'>75':'≤75')+' mm）。'+(state.dfuSlope<=sMin?'合規。':'<b>坡度過緩，不符 §4.2.3</b>。表 4-1 對 100~125 mm 另列最小坡度 1/150、150 mm 為 1/200，條文與表格有落差，若要採用較緩坡度請在計算書內載明依據並取得審查同意。'));
+  addCheck(dc,'warn','此表為 IPC/UPC 慣用量級，<b>不是台灣法定值</b>。送審請改用當地建築主管機關認可之對照表（可直接編輯上方展開區的數值）。另：立管管徑不得小於接入該管之最大橫支管管徑（§4.2.2）；75 mm 橫支管一般限接 2 個大便器以內。');
+  addCheck(dc,'info','DFU 只決定管徑，<b>不保證系統會正常運作</b>。每一存水彎都必須有對應通氣（VP/VTR），否則負壓會把封水抽乾、臭氣直接竄回室內。通氣管系統須另行設計核算，不在本工具範圍。');
+
+  /* Summary */
+  $('summary').innerHTML =
+    '<div class="sum-item"><div class="k">污水總排放量</div><div class="v">'+fmt(totalSewage,1)+'<span>M³/日</span></div></div>'+
+    '<div class="sum-item"><div class="k">尖峰流量</div><div class="v">'+fmt(PK.total,1)+'<span>m³/h</span></div></div>'+
+    '<div class="sum-item '+(okBal?'ok':'bad')+'"><div class="k">用水/排水平衡</div><div class="v">'+(okBal?'勾稽一致':'有落差')+'</div></div>'+
+    '<div class="sum-item"><div class="k">集水坑泵浦</div><div class="v">'+fmt(PS,1)+'<span>PS × 2台</span></div></div>';
+
+  writeHash();
+}
+
+function getPop(totalSewage){
+  if(state.popMode==='area')  return state.popArea * state.popDensity;
+  if(state.popMode==='flow')  return state.septicUnit>0 ? totalSewage/state.septicUnit : NaN;
+  return state.septicPop;
+}
+
+function boot(){
+  [['domesticSupply','domesticSupply'],['recoveryRate','recoveryRate'],['blackRatio','blackRatio'],
+   ['processWaste','processWaste'],['procHours','procHours'],['totalIntake','totalIntake'],['otherLoss','otherLoss'],
+   ['pfManual','pfManual'],['pfCap','pfCap'],['septicPop','septicPop'],['septicUnit','septicUnit'],
+   ['popArea','popArea'],['popDensity','popDensity'],['septicRetention','septicRetention'],
+   ['pitQman','pitQman'],['pumpQ','pumpQ'],['cycleMin','cycleMin'],['pitStatic','pitStatic'],
+   ['pitLen','pitLen'],['pitD','pitD'],['pitEff','pitEff'],['dfuSlope','dfuSlope']].forEach(([id,k])=>{ $(id).value = state[k]; });
+  buildDfuRows(); buildCapRows(); initTopbar(); render();
+}
+boot();
+
+/* 供 tests/verify.js 取用 */
+window.CALC = CALC; window.state = state; window.DEFAULTS = DEFAULTS;
+
 </script>
 </body>
 </html>
