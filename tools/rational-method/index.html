@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雨水排水設計流量計算機 — MEP 工具箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1622; --panel:#101f30; --panel-2:#0d1a29;
+    --grid:rgba(94,234,212,0.055); --border-real:#22384d;
+    --accent:#5eead4; --accent-dim:#2f5a54; --amber:#f5b942;
+    --good:#34d399; --bad:#f87171;
+    --text:#e8eef4; --text-dim:#8ea0b5; --text-dimmer:#5b7086;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg);
+    color:var(--text); font-family:'Inter',system-ui,sans-serif;
+    padding:20px 14px 60px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:960px; margin:0 auto; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  h1{ font-size:26px; margin:0 0 4px; font-weight:700; letter-spacing:-0.01em; }
+  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 22px; line-height:1.5; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .back{ display:inline-flex; align-items:center; gap:7px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); text-decoration:none; padding:6px 12px 6px 9px; border-radius:8px; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .actions{ display:flex; gap:7px; }
+  .action-btn{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); padding:6px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .action-btn:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .action-btn.done{ color:var(--good); border-color:rgba(52,211,153,.45); }
+
+  .card{ background:var(--panel); border:1px solid var(--border-real); border-radius:14px; padding:18px 18px 20px; margin-bottom:16px; }
+  .card h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .card h2::after{ content:''; flex:1; height:1px; background:var(--border-real); }
+  .card .formula-line{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--accent); background:var(--panel-2); border:1px solid var(--border-real); border-left:2px solid var(--accent); padding:8px 11px; border-radius:0 7px 7px 0; margin:-4px 0 14px; }
+
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  .row{ display:flex; gap:8px; align-items:center; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  @media (max-width:720px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+
+  input[type=number], select{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:15px; padding:9px 10px; border-radius:8px; outline:none; transition:border-color .15s; }
+  input[type=number]:focus, select:focus{ border-color:var(--accent); }
+  select{ cursor:pointer; }
+  .sub-hint{ font-size:11px; color:var(--text-dimmer); margin-top:5px; font-family:'IBM Plex Mono',monospace; }
+
+  .toggle-pair{ display:flex; gap:6px; margin-bottom:14px; }
+  .toggle-pair button{ flex:1; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim); font-size:12.5px; font-weight:600; padding:8px; border-radius:7px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .toggle-pair button.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+
+  table.rows-table{ width:100%; border-collapse:collapse; font-size:13px; margin-bottom:10px; }
+  table.rows-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 6px; border-bottom:1px solid var(--border-real); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; }
+  table.rows-table td{ padding:5px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  table.rows-table input[type=number]{ padding:6px 7px; font-size:13px; }
+  table.rows-table input[type=text]{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:'Inter',sans-serif; font-size:13px; padding:6px 7px; border-radius:6px; outline:none; }
+  .rm-btn{ background:transparent; border:1px solid var(--border-real); color:var(--bad); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:14px; line-height:1; }
+  .add-row-btn{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent); background:var(--panel-2); border:1px dashed var(--accent-dim); border-radius:8px; padding:7px 12px; cursor:pointer; }
+
+  .result-hero{ text-align:center; padding:14px 6px 18px; border-bottom:1px dashed var(--border-real); margin-bottom:16px; }
+  .result-label{ font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+  .result-value{ font-family:'IBM Plex Mono',monospace; font-size:40px; font-weight:700; color:var(--accent); line-height:1; }
+  .result-unit{ font-size:14px; color:var(--text-dim); margin-left:6px; }
+  .result-sub{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text-dimmer); margin-top:6px; }
+
+  .derived-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .derived-item{ background:var(--panel-2); border:1px solid var(--border-real); border-radius:9px; padding:9px 8px; text-align:center; }
+  .derived-item .k{ font-size:10px; color:var(--text-dimmer); letter-spacing:.04em; margin-bottom:3px;}
+  .derived-item .v{ font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--text); }
+
+  .notice{ display:flex; gap:10px; padding:11px 13px; border-radius:9px; border:1px solid rgba(245,185,66,.4); background:rgba(245,185,66,.08); font-size:12.5px; color:var(--text-dim); line-height:1.6; margin-bottom:14px; }
+  .notice b{ color:var(--amber); }
+  .notice.info{ border-color:var(--border-real); background:var(--panel-2); }
+  .notice.info b{ color:var(--accent); }
+
+  details.refs{ margin-top:4px; background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:4px 16px; }
+  details.refs summary{ cursor:pointer; padding:12px 0; font-size:13px; color:var(--text-dim); font-weight:600; }
+  details.refs summary::marker{ color:var(--accent); }
+  .ref-table{ width:100%; border-collapse:collapse; font-size:12px; margin:6px 0 14px; }
+  .ref-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border-real); font-size:11px;}
+  .ref-table td{ padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-dim); }
+  .ref-table td.n-val{ font-family:'IBM Plex Mono',monospace; color:var(--accent); }
+  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.7; padding-bottom:14px; }
+
+  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    body{ background:#fff; color:#000; padding:0; }
+    .topbar, .add-row-btn, .rm-btn, details.refs summary{ display:none !important; }
+    .card, .derived-item, details.refs{ background:#fff !important; border-color:#999 !important; }
+    .result-value, .n-val, .card h2, .eyebrow{ color:#000 !important; }
+    .subtitle, .result-label, .derived-item .k, .src-list{ color:#333 !important; }
+    details.refs{ display:block; }
+    details.refs > *:not(summary){ display:block !important; }
+  }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar">
+    <a class="back" href="../../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      回工具箱
+    </a>
+    <div class="actions">
+      <button class="action-btn" id="btnShare" type="button">複製分享連結</button>
+      <button class="action-btn" id="btnPrint" type="button">列印 / 存 PDF</button>
+    </div>
+  </nav>
+
+  <div class="eyebrow">MEP // 排水工具 ・ HYD-02</div>
+  <h1>雨水排水設計流量計算機</h1>
+  <p class="subtitle">合理化公式（Rational Method）估算基地雨水／逕流設計流量，用來抓雨水下水道管徑、抽水站或滯洪設施的量級。雨水系統原則上與污水系統分流設計，不可混接。</p>
+
+  <div class="notice">
+    <span>⚠️</span>
+    <span><b>降雨強度 I 因地而異</b>：本工具內建的 IDF 公式僅為通用格式示意，正式設計必須向當地水利/都市計畫主管機關查詢現行公告之 IDF 曲線公式與重現期距，或直接採用當地already公告之強度值覆核。</span>
+  </div>
+
+  <div class="card">
+    <h2>① 集水面積與逕流係數 C</h2>
+    <div class="formula-line">C = Σ(Ci × Ai) / ΣAi　（面積加權平均逕流係數）</div>
+    <table class="rows-table">
+      <thead><tr><th style="width:34%">地表覆蓋型態</th><th style="width:22%">面積 (m²)</th><th style="width:22%">逕流係數 C</th><th style="width:16%">Ci×Ai</th><th></th></tr></thead>
+      <tbody id="cRows"></tbody>
+    </table>
+    <button class="add-row-btn" id="addRow" type="button">+ 新增地表類型</button>
+    <div class="field" style="margin-top:14px;">
+      <div class="row" style="justify-content:space-between;">
+        <span class="sub-hint">總集水面積 A = <b id="areaSumM2" style="color:var(--text)">—</b> m² ＝ <b id="areaSumHa" style="color:var(--accent)">—</b> ha</span>
+        <span class="sub-hint">加權平均 C = <b id="cWeighted" style="color:var(--accent)">—</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>② 降雨強度 I</h2>
+      <div class="toggle-pair">
+        <button id="btnModeManual" type="button">手動輸入 I</button>
+        <button id="btnModeFormula" type="button">IDF 公式試算</button>
+      </div>
+      <div id="iInputs"></div>
+    </div>
+
+    <div class="card" id="resultCard">
+      <h2>③ 設計逕流量 Q</h2>
+      <div class="result-hero">
+        <div class="result-label">Q = C・I・A / 360</div>
+        <div><span class="result-value" id="resultValue">—</span><span class="result-unit">m³/s</span></div>
+        <div class="result-sub" id="resultSub"></div>
+      </div>
+      <div class="derived-grid">
+        <div class="derived-item"><div class="k">Q (L/s)</div><div class="v" id="qLs">—</div></div>
+        <div class="derived-item"><div class="k">Q (m³/hr)</div><div class="v" id="qHr">—</div></div>
+        <div class="derived-item"><div class="k">Q (CMD)</div><div class="v" id="qDay">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notice info">
+    <span>ℹ️</span>
+    <span><b>雨污分流原則</b>：雨水管（RP）與污水管（SP）須各自獨立配管、分開放流，不可誤接混流；管材與圖例應清楚區分（本案污水管採硬質 PVC 橘紅色管標示）。雨水系統的放流點、退水路徑需另與基地土建/水保計畫核對銜接是否順暢。</span>
+  </div>
+
+  <details class="refs">
+    <summary>參考來源與逕流係數常用範圍</summary>
+    <table class="ref-table">
+      <tr><th>地表覆蓋型態</th><th>常用 C 值</th><th>範圍</th></tr>
+      <tr><td>屋頂（不透水）</td><td class="n-val">0.90</td><td>0.85–0.95</td></tr>
+      <tr><td>混凝土／瀝青鋪面</td><td class="n-val">0.85</td><td>0.80–0.95</td></tr>
+      <tr><td>碎石鋪面</td><td class="n-val">0.40</td><td>0.35–0.55</td></tr>
+      <tr><td>綠地／草皮（平緩）</td><td class="n-val">0.20</td><td>0.10–0.25</td></tr>
+      <tr><td>裸土／未開發用地</td><td class="n-val">0.30</td><td>0.20–0.40</td></tr>
+    </table>
+    <div class="src-list">
+      合理化公式 Q=CIA/360（Q: m³/s，I: mm/hr，A: ha）為台灣工程實務慣用簡化型式（積水面積以公頃計、係數 360 已內含單位轉換）。<br>
+      逕流係數參考範圍：內政部營建署《雨水下水道系統規劃原則與設計標準》、中央氣象署暨各縣市政府水利/工務機關公告之逕流係數建議值。<br>
+      降雨強度 IDF 公式：須採用當地水利/都市計畫主管機關現行公告之重現期距-延時-強度關係曲線（各縣市、各測站係數不同，需逐案查核），本工具內建公式僅供試算格式示意，非任何特定測站之官方數值。
+    </div>
+  </details>
+
+  <footer class="credit">RATIONAL METHOD · Q = C·I·A/360 · 適用小型集水區（&lt; 數百公頃）之尖峰逕流估算</footer>
+</div>
+
+<script>
+// ---------- State ----------
+let state = {
+  rows: [
+    {label:'屋頂', area:8000, c:0.90},
+    {label:'鋪面／道路', area:3000, c:0.85},
+    {label:'綠地', area:1500, c:0.20},
+  ],
+  iMode: 'manual',     // manual | formula
+  iManual: 150,          // mm/hr
+  // generic IDF form: I = (a * T^b) / (t + c)^d
+  idf: { a: 1800, b: 0.2, c: 15, d: 0.75, T: 10, t: 20 },
+};
+
+function fmt(x, d){
+  if(x===null || x===undefined || !isFinite(x)) return '—';
+  return x.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
+}
+
+// ---------- C rows ----------
+function renderRows(){
+  const tbody = document.getElementById('cRows');
+  tbody.innerHTML = '';
+  state.rows.forEach((r, i)=>{
+    const ci = r.area * r.c;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" data-i="${i}" data-f="label" value="${r.label}"></td>
+      <td><input type="number" data-i="${i}" data-f="area" value="${r.area}" step="1" min="0"></td>
+      <td><input type="number" data-i="${i}" data-f="c" value="${r.c}" step="0.01" min="0" max="1"></td>
+      <td class="sub-hint" style="font-family:'IBM Plex Mono',monospace;">${fmt(ci,0)}</td>
+      <td><button class="rm-btn" data-rm="${i}" type="button">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i = +e.target.dataset.i, f = e.target.dataset.f;
+      state.rows[i][f] = (f==='label') ? e.target.value : (parseFloat(e.target.value)||0);
+      renderRows(); computeAndRender();
+    });
+  });
+  tbody.querySelectorAll('.rm-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      state.rows.splice(+e.target.dataset.rm, 1);
+      renderRows(); computeAndRender();
+    });
+  });
+}
+document.getElementById('addRow').onclick = ()=>{
+  state.rows.push({label:'新地表類型', area:0, c:0.5});
+  renderRows(); computeAndRender();
+};
+
+// ---------- I inputs ----------
+function renderIInputs(){
+  document.getElementById('btnModeManual').classList.toggle('active', state.iMode==='manual');
+  document.getElementById('btnModeFormula').classList.toggle('active', state.iMode==='formula');
+  const el = document.getElementById('iInputs');
+  if(state.iMode === 'manual'){
+    el.innerHTML = `
+      <div class="field">
+        <label>降雨強度 I (mm/hr)</label>
+        <input type="number" id="inIManual" step="1" value="${state.iManual}">
+        <div class="sub-hint">直接輸入當地主管機關公告之設計降雨強度值</div>
+      </div>`;
+    document.getElementById('inIManual').oninput = e=>{ state.iManual = parseFloat(e.target.value)||0; computeAndRender(); };
+  } else {
+    el.innerHTML = `
+      <div class="formula-line" style="margin-top:0;">I = a·T^b / (t + c)^d</div>
+      <div class="grid3">
+        <div class="field"><label>a</label><input type="number" id="idfA" step="1" value="${state.idf.a}"></div>
+        <div class="field"><label>b</label><input type="number" id="idfB" step="0.01" value="${state.idf.b}"></div>
+        <div class="field"><label>c</label><input type="number" id="idfC" step="1" value="${state.idf.c}"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>d</label><input type="number" id="idfD" step="0.01" value="${state.idf.d}"></div>
+        <div class="field"><label>重現期距 T (年)</label><input type="number" id="idfT" step="1" value="${state.idf.T}"></div>
+        <div class="field"><label>集流時間 t (min)</label><input type="number" id="idfT2" step="1" value="${state.idf.t}"></div>
+      </div>
+      <div class="sub-hint" id="idfResult" style="margin-top:8px;"></div>
+    `;
+    ['idfA','idfB','idfC','idfD','idfT','idfT2'].forEach((id,idx)=>{
+      const keys=['a','b','c','d','T','t'];
+      document.getElementById(id).oninput = e=>{ state.idf[keys[idx]] = parseFloat(e.target.value)||0; computeAndRender(); };
+    });
+  }
+}
+document.getElementById('btnModeManual').onclick = ()=>{ state.iMode='manual'; renderIInputs(); computeAndRender(); };
+document.getElementById('btnModeFormula').onclick = ()=>{ state.iMode='formula'; renderIInputs(); computeAndRender(); };
+
+// ---------- Pure calc ----------
+function calcAreaAndC(rows){
+  const sumA = rows.reduce((s,r)=>s+r.area,0);
+  const sumCA = rows.reduce((s,r)=>s+r.area*r.c,0);
+  const cw = sumA>0 ? sumCA/sumA : 0;
+  return { areaM2: sumA, areaHa: sumA/10000, cWeighted: cw };
+}
+function calcI(mode, iManual, idf){
+  if(mode==='manual') return iManual;
+  const { a,b,c,d,T,t } = idf;
+  if((t+c)<=0) return NaN;
+  return (a*Math.pow(T,b)) / Math.pow(t+c, d);
+}
+function calcQ(c, i, areaHa){
+  return (c * i * areaHa) / 360; // m3/s
+}
+
+function computeAndRender(){
+  const { areaM2, areaHa, cWeighted } = calcAreaAndC(state.rows);
+  const I = calcI(state.iMode, state.iManual, state.idf);
+  const Q = calcQ(cWeighted, I, areaHa);
+
+  document.getElementById('areaSumM2').textContent = fmt(areaM2,0);
+  document.getElementById('areaSumHa').textContent = fmt(areaHa,4);
+  document.getElementById('cWeighted').textContent = fmt(cWeighted,3);
+
+  if(state.iMode==='formula'){
+    const r = document.getElementById('idfResult');
+    if(r) r.textContent = `計算得 I = ${fmt(I,1)} mm/hr（T=${state.idf.T}年重現期距，集流時間 t=${state.idf.t} min）`;
+  }
+
+  const valid = isFinite(Q) && areaM2>0;
+  document.getElementById('resultValue').textContent = valid ? fmt(Q,4) : '—';
+  document.getElementById('resultSub').textContent = valid ? `C=${fmt(cWeighted,3)} ・ I=${fmt(I,1)} mm/hr ・ A=${fmt(areaHa,4)} ha` : '請輸入面積與逕流係數';
+  document.getElementById('qLs').textContent = valid ? fmt(Q*1000,1) : '—';
+  document.getElementById('qHr').textContent = valid ? fmt(Q*3600,1) : '—';
+  document.getElementById('qDay').textContent = valid ? fmt(Q*86400,0) : '—';
+
+  writeHash();
+}
+
+// ---------- 分享 / 列印 ----------
+document.getElementById('btnShare').onclick = async function(){
+  writeHash();
+  const btn = this;
+  const url = location.href;
+  try{ await navigator.clipboard.writeText(url); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){ prompt('複製這段網址：', url); }
+    document.body.removeChild(ta);
+  }
+  btn.textContent = '已複製連結'; btn.classList.add('done');
+  setTimeout(()=>{ btn.textContent='複製分享連結'; btn.classList.remove('done'); }, 2000);
+};
+document.getElementById('btnPrint').onclick = ()=> window.print();
+
+// ---------- 網址狀態同步 ----------
+function writeHash(){
+  const p = new URLSearchParams();
+  p.set('rows', JSON.stringify(state.rows));
+  p.set('im', state.iMode);
+  p.set('iman', state.iManual);
+  p.set('idf', JSON.stringify(state.idf));
+  history.replaceState(null, '', '#' + p.toString());
+}
+function readHash(){
+  if(!location.hash || location.hash.length<2) return;
+  const p = new URLSearchParams(location.hash.slice(1));
+  try{ if(p.has('rows')) state.rows = JSON.parse(p.get('rows')); }catch(e){}
+  if(p.has('im')) state.iMode = p.get('im');
+  if(p.has('iman')) state.iManual = parseFloat(p.get('iman'))||state.iManual;
+  try{ if(p.has('idf')) state.idf = Object.assign(state.idf, JSON.parse(p.get('idf'))); }catch(e){}
+}
+
+readHash();
+renderRows();
+renderIInputs();
+computeAndRender();
+</script>
+</body>
+</html>

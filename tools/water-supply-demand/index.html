@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>給水設計流量與泵浦計算機 — MEP 工具箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1622; --panel:#101f30; --panel-2:#0d1a29;
+    --grid:rgba(94,234,212,0.055); --border-real:#22384d;
+    --accent:#5eead4; --accent-dim:#2f5a54; --amber:#f5b942;
+    --good:#34d399; --bad:#f87171;
+    --text:#e8eef4; --text-dim:#8ea0b5; --text-dimmer:#5b7086;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg);
+    color:var(--text); font-family:'Inter',system-ui,sans-serif;
+    padding:20px 14px 60px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:980px; margin:0 auto; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  h1{ font-size:26px; margin:0 0 4px; font-weight:700; letter-spacing:-0.01em; }
+  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 20px; line-height:1.5; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .back{ display:inline-flex; align-items:center; gap:7px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); text-decoration:none; padding:6px 12px 6px 9px; border-radius:8px; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .actions{ display:flex; gap:7px; }
+  .action-btn{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); padding:6px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .action-btn:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .action-btn.done{ color:var(--good); border-color:rgba(52,211,153,.45); }
+
+  /* summary strip */
+  .summary{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; position:sticky; top:10px; z-index:5; }
+  @media (max-width:760px){ .summary{ grid-template-columns:repeat(2,1fr); position:static; } }
+  .sum-item{ background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:12px 14px; backdrop-filter:blur(6px); }
+  .sum-item .k{ font-size:10.5px; color:var(--text-dimmer); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px; }
+  .sum-item .v{ font-family:'IBM Plex Mono',monospace; font-size:19px; color:var(--accent); font-weight:700; }
+  .sum-item .v span{ font-size:11px; color:var(--text-dim); font-weight:500; margin-left:3px; }
+
+  .step{ background:var(--panel); border:1px solid var(--border-real); border-radius:14px; padding:18px 18px 20px; margin-bottom:14px; }
+  .step-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  .step-num{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent); font-weight:700; }
+  .step h2{ font-size:15px; margin:0; font-weight:700; flex:1; }
+  .step .step-sub{ color:var(--text-dim); font-size:12.5px; margin:2px 0 14px; line-height:1.5; }
+  .formula-line{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--accent); background:var(--panel-2); border:1px solid var(--border-real); border-left:2px solid var(--accent); padding:8px 11px; border-radius:0 7px 7px 0; margin:0 0 14px; overflow-x:auto; white-space:nowrap; }
+
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  @media (max-width:720px){ .grid2,.grid3,.grid4{ grid-template-columns:1fr 1fr; } }
+
+  input[type=number], select{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:14.5px; padding:8px 10px; border-radius:8px; outline:none; transition:border-color .15s; }
+  input[type=number]:focus, select:focus{ border-color:var(--accent); }
+  select{ cursor:pointer; }
+  .sub-hint{ font-size:11px; color:var(--text-dimmer); margin-top:5px; font-family:'IBM Plex Mono',monospace; }
+
+  table.rows-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:10px; }
+  table.rows-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 5px; border-bottom:1px solid var(--border-real); font-size:10px; letter-spacing:.04em; text-transform:uppercase; }
+  table.rows-table td{ padding:5px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  table.rows-table input[type=number]{ padding:6px 7px; font-size:12.5px; }
+  table.rows-table select{ padding:6px 7px; font-size:12.5px; }
+  .rm-btn{ background:transparent; border:1px solid var(--border-real); color:var(--bad); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:14px; line-height:1; }
+  .add-row-btn{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent); background:var(--panel-2); border:1px dashed var(--accent-dim); border-radius:8px; padding:7px 12px; cursor:pointer; }
+
+  .result-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; margin-top:4px; flex-wrap:wrap; }
+  .result-row .lbl{ font-size:12.5px; color:var(--text-dim); }
+  .result-row .val{ font-family:'IBM Plex Mono',monospace; font-size:20px; color:var(--accent); font-weight:700; }
+  .result-row .val span{ font-size:12px; color:var(--text-dim); font-weight:500; margin-left:4px; }
+
+  .check{ display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:9px; border:1px solid var(--border-real); background:var(--panel-2); font-size:12.5px; margin-top:8px; }
+  .check .icon{ font-size:15px; width:18px; text-align:center; flex-shrink:0; }
+  .check.pass{ border-color:rgba(52,211,153,0.35); } .check.pass .icon{ color:var(--good); }
+  .check.fail{ border-color:rgba(248,113,113,0.4); } .check.fail .icon{ color:var(--bad); }
+  .check .txt b{ color:var(--text); }
+  .check .txt{ color:var(--text-dim); line-height:1.4; }
+
+  .toggle-pair{ display:flex; gap:6px; margin-bottom:12px; }
+  .toggle-pair button{ flex:1; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim); font-size:12px; font-weight:600; padding:7px; border-radius:7px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .toggle-pair button.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+
+  details.sub{ margin-top:6px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; padding:2px 14px; }
+  details.sub summary{ cursor:pointer; padding:10px 0; font-size:12.5px; color:var(--accent); font-weight:600; }
+  details.sub summary::marker{ color:var(--accent); }
+
+  details.refs{ margin-top:4px; background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:4px 16px; }
+  details.refs summary{ cursor:pointer; padding:12px 0; font-size:13px; color:var(--text-dim); font-weight:600; }
+  details.refs summary::marker{ color:var(--accent); }
+  .ref-table{ width:100%; border-collapse:collapse; font-size:12px; margin:6px 0 14px; }
+  .ref-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border-real); font-size:11px;}
+  .ref-table td{ padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-dim); }
+  .ref-table td.n-val{ font-family:'IBM Plex Mono',monospace; color:var(--accent); }
+  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.7; padding-bottom:14px; }
+
+  .notice{ display:flex; gap:10px; padding:11px 13px; border-radius:9px; border:1px solid rgba(245,185,66,.4); background:rgba(245,185,66,.08); font-size:12.5px; color:var(--text-dim); line-height:1.6; margin-bottom:14px; }
+  .notice b{ color:var(--amber); }
+
+  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    body{ background:#fff; color:#000; padding:0; }
+    .topbar, .summary, .add-row-btn, .rm-btn, details summary{ display:none !important; }
+    .step, .result-row, .check, details{ background:#fff !important; border-color:#999 !important; }
+    .result-row .val, .n-val, .step h2, .eyebrow, .formula-line{ color:#000 !important; }
+    .subtitle, .step-sub, .src-list{ color:#333 !important; }
+    details{ display:block; } details > *:not(summary){ display:block !important; }
+  }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar">
+    <a class="back" href="../../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      回工具箱
+    </a>
+    <div class="actions">
+      <button class="action-btn" id="btnShare" type="button">複製分享連結</button>
+      <button class="action-btn" id="btnPrint" type="button">列印 / 存 PDF</button>
+    </div>
+  </nav>
+
+  <div class="eyebrow">MEP // 給水工具 ・ HYD-03</div>
+  <h1>給水設計流量與泵浦計算機</h1>
+  <p class="subtitle">依台灣自來水公司內線用水設備審查慣用方法：人口法(V1)＋樓地板面積法(V2)＋特殊製程用水，逐步算出一日設計用水量、進水口徑、蓄水池/水塔容量、揚水管徑與泵浦馬力。預設值取自龍慶 27MW 案範例，換算新案時請全部覆蓋成專案自己的數字。</p>
+
+  <div class="notice">
+    <span>⚠️</span>
+    <span><b>本工具僅供規劃期估算，非送審依據。</b>正式設計仍須以當地自來水公司現行「內線用水設備審查要點」覆核安全係數、口徑對照表；特殊製程用水（如冷卻水塔補水）務必取得機電團隊正式負載計算書，不可只用面積法估算。</span>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <!-- STEP 1: V1 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">①</span><h2>V1 — 人口法（住宅類使用）</h2></div>
+    <div class="step-sub">套房每戶以 2 人計算・一般住宅每戶以 4 人計算・透天厝/透天別墅每戶以 8 人計算。資料中心／工業廠房案通常無住宅分區，V1 可為 0。</div>
+    <div class="formula-line">V1 = Σ(每戶人數基準 × 戶數) × 250 L/人日 ÷ 1000</div>
+    <div class="grid3">
+      <div class="field"><label>套房戶數（2人/戶）</label><input type="number" id="v1Studio" step="1" min="0" value="0"></div>
+      <div class="field"><label>一般住宅戶數（4人/戶）</label><input type="number" id="v1House" step="1" min="0" value="0"></div>
+      <div class="field"><label>透天戶數（8人/戶）</label><input type="number" id="v1Villa" step="1" min="0" value="0"></div>
+    </div>
+    <div class="field"><label>單位用水量基準 (L/人日)</label><input type="number" id="v1Unit" step="10" value="250" style="max-width:180px;"></div>
+    <div class="result-row"><span class="lbl">V1 一日用水量</span><span class="val" id="outV1">0.00<span>M³/日</span></span></div>
+  </div>
+
+  <!-- STEP 2: V2 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">②</span><h2>V2 — 樓地板面積推算法（非住宅使用）</h2></div>
+    <div class="step-sub">每一使用分區：V2' = 樓地板面積 × 有效面積比 × 人員密度 × 每人用水量(M³/人，已換算，例如辦公室100L/人＝0.1)，各分區加總後再乘一次調整係數（常取 0.9，容許 ±10%）。</div>
+    <div class="formula-line">V2 = ΣV2' × 調整係數</div>
+    <table class="rows-table">
+      <thead><tr>
+        <th style="width:16%">用途</th><th style="width:14%">樓地板面積(m²)</th><th style="width:12%">有效面積比</th>
+        <th style="width:12%">人員密度(人/m²)</th><th style="width:14%">單位用水量(M³/人)</th><th style="width:12%">V2'(M³/日)</th><th></th>
+      </tr></thead>
+      <tbody id="v2Rows"></tbody>
+    </table>
+    <button class="add-row-btn" id="v2AddRow" type="button">+ 新增分區</button>
+    <div class="field" style="margin-top:14px; max-width:220px;">
+      <label>調整係數</label>
+      <input type="number" id="v2Adj" step="0.05" min="0" max="1.5" value="0.9">
+    </div>
+    <div class="result-row"><span class="lbl">V2' 小計 → V2 一日用水量</span><span class="val" id="outV2">0.00<span>M³/日</span></span></div>
+  </div>
+
+  <!-- STEP 3: V process -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">③</span><h2>V(製程) — 特殊製程用水</h2></div>
+    <div class="step-sub">冷卻水塔補水、製程冷卻水、實驗室/廚房用水等。資料中心案此項常占總用水量 80~98%，須由機電團隊提供負載計算書，不可用面積法估算。</div>
+    <div class="field"><label>特殊製程用水 V(製程) (M³/日)</label><input type="number" id="vProcess" step="0.1" value="443.52"></div>
+
+    <details class="sub">
+      <summary>冷卻水塔補水量試算（Makeup = 蒸發 E + 排放 BD + 飛濺 Drift）</summary>
+      <div class="formula-line" style="margin-top:10px;">Makeup = E + BD + Drift　｜　BD = E / (COC－1)　｜　Drift ≈ 循環水量 × 0.005~0.02%</div>
+      <div class="grid3">
+        <div class="field"><label>蒸發損失 E (M³/日)</label><input type="number" id="ctE" step="1" value="335"></div>
+        <div class="field"><label>濃縮倍數 COC</label><input type="number" id="ctCOC" step="0.1" min="1.01" value="4.1"></div>
+        <div class="field"><label>循環水量 (M³/日，選填，用於Drift)</label><input type="number" id="ctCirc" step="1" value="0"></div>
+      </div>
+      <div class="field" style="max-width:220px;"><label>飛濺比例 Drift (%)</label><input type="number" id="ctDriftPct" step="0.001" value="0.01"></div>
+      <div class="result-row">
+        <span class="lbl">BD 排放 / Drift 飛濺 / Makeup 補水量</span>
+        <span class="val" id="outMakeup" style="font-size:16px;">— / — / —<span>M³/日</span></span>
+      </div>
+      <div class="sub-hint">COC－1 = E / BD，可由實際用水平衡圖反推 COC 作為校核（27MW案：335/108.5≈3.09 → COC≈4.1，屬 3~6 常見設計範圍）。</div>
+      <button class="add-row-btn" id="ctApply" type="button" style="margin-top:10px;">→ 帶入 V(製程)</button>
+    </details>
+
+    <div class="result-row" style="margin-top:14px;"><span class="lbl">V = V1 + V2 + V(製程)</span><span class="val" id="outV">0.00<span>M³/日</span></span></div>
+  </div>
+
+  <!-- STEP 4: Vd + Di -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">④</span><h2>Vd 一日設計用水量與進水口徑 Di</h2></div>
+    <div class="formula-line">Vd = V × 安全係數　｜　Di = 4.59 × √Vd (mm)</div>
+    <table class="ref-table" style="margin-bottom:14px;">
+      <tr><th>一日用水量 V (M³)</th><th>安全係數</th><th>對應標準口徑(mm)</th></tr>
+      <tr><td>V &lt; 13.5</td><td class="n-val">1.5</td><td>20</td></tr>
+      <tr><td>V = 13.6~24.5</td><td class="n-val">1.4</td><td>25</td></tr>
+      <tr><td>V = 24.6~68.5</td><td class="n-val">1.2</td><td>40</td></tr>
+      <tr><td>V &gt; 68.5</td><td class="n-val">1.1</td><td>Di=4.59√Vd 計算選取</td></tr>
+    </table>
+    <div class="grid2">
+      <div class="field">
+        <label>安全係數（依 V 自動帶入，可覆寫）</label>
+        <input type="number" id="safetyFactor" step="0.05" value="1.1">
+      </div>
+      <div class="field">
+        <label>標準口徑對照表（mm，逗號分隔，可自訂）</label>
+        <input type="text" id="pipeSizes" value="13,20,25,32,40,50,65,75,100,125,150,200,250,300" style="font-family:'IBM Plex Mono',monospace; font-size:12px;">
+      </div>
+    </div>
+    <div class="result-row"><span class="lbl">Vd 設計用水量</span><span class="val" id="outVd">0.00<span>M³/日</span></span></div>
+    <div class="result-row"><span class="lbl">Di 計算口徑 → 最近標準口徑</span><span class="val" id="outDi">— → —<span>mm</span></span></div>
+  </div>
+
+  <!-- STEP 5: Storage -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">⑤</span><h2>蓄水池 (VG) 與水塔 (VT) 容量校核</h2></div>
+    <div class="formula-line">VG ≥ 20% × Vd　｜　VG + VT ≥ 300% × Vd（約當 3 天用水緩衝）</div>
+    <div class="grid2">
+      <div class="field"><label>本案蓄水池 VG 實際採用 (M³)</label><input type="number" id="vgActual" step="1" value="1676"></div>
+      <div class="field"><label>本案水塔 VT 實際採用 (M³)</label><input type="number" id="vtActual" step="1" value="0"></div>
+    </div>
+    <div class="result-row"><span class="lbl">VG 下限（20%Vd）／VG+VT 下限（300%Vd）</span><span class="val" id="outStorageMin" style="font-size:16px;">— / —<span>M³</span></span></div>
+    <div id="storageChecks"></div>
+  </div>
+
+  <!-- STEP 6: Dp -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">⑥</span><h2>揚水管口徑 Dp</h2></div>
+    <div class="step-sub">以 t=30 分鐘輸送 0.1Vd 為最少設計標準：0.1×Vd/t = (π/4)×Dp²×υp</div>
+    <div class="formula-line">Dp = 6.65 × √Vd (mm)</div>
+    <div class="result-row"><span class="lbl">Dp 計算口徑 → 最近標準口徑</span><span class="val" id="outDp">— → —<span>mm</span></span></div>
+    <div class="sub-hint">本案採分區供水（辦公區/警衛室/空調用水區各自獨立揚水泵浦系統），實務常按分區各自核算，而非單一總管統一輸送 — 如採分區設計，請對每一分區個別使用本工具估算。</div>
+  </div>
+
+  <!-- STEP 7: Head -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">⑦</span><h2>揚水總揚程 H</h2></div>
+    <div class="formula-line">H = Hs + Hd + Ht + Hw</div>
+    <div class="grid4">
+      <div class="field"><label>樓高 (m)</label><input type="number" id="hBuilding" step="0.1" value="10.9"></div>
+      <div class="field"><label>管長 L (m)</label><input type="number" id="hLength" step="0.1" value="12"></div>
+      <div class="field"><label>管徑 D (mm)</label><input type="number" id="hDiameter" step="1" value="150"></div>
+      <div class="field"><label>流速 V (m/s)</label><input type="number" id="hVelocity" step="0.01" value="1.6"></div>
+    </div>
+    <div class="result-row"><span class="lbl">Hs 吸入 / Hd 出口 / Ht 摩擦 / Hw 水錘</span><span class="val" id="outHParts" style="font-size:15px;">—<span>m</span></span></div>
+    <div class="result-row"><span class="lbl">H 總揚程</span><span class="val" id="outH">0.00<span>m</span></span></div>
+  </div>
+
+  <!-- STEP 8: Pump HP -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">⑧</span><h2>揚水泵浦馬力 HP</h2></div>
+    <div class="formula-line">HP = (1000 × Q × H) / (75 × E) × 1.1</div>
+    <div class="toggle-pair">
+      <button id="btnQFromVt" type="button">由水塔容量 Vt 推算 Q（30分鐘充滿）</button>
+      <button id="btnQManual" type="button">直接輸入 Q</button>
+    </div>
+    <div id="qInputs"></div>
+    <div class="grid2">
+      <div class="field"><label>幫浦效率 × 馬達效率 E（常取 0.6）</label><input type="number" id="pumpE" step="0.05" min="0.01" max="1" value="0.6"></div>
+      <div class="field"><label>裕餘係數（常取 1.1，即 +10%）</label><input type="number" id="pumpMargin" step="0.01" value="1.1"></div>
+    </div>
+    <div class="result-row"><span class="lbl">揚水量 Q</span><span class="val" id="outQ">0.00<span>L/min</span></span></div>
+    <div class="result-row"><span class="lbl">泵浦馬力 HP</span><span class="val" id="outHP">0.00<span>HP</span></span></div>
+  </div>
+
+  <details class="refs">
+    <summary>參考來源與樓地板面積法係數表</summary>
+    <table class="ref-table">
+      <tr><th>建築物種類</th><th>有效面積比</th><th>人員密度(人/m²)</th><th>單位用水量(M³/人)</th></tr>
+      <tr><td>辦公室</td><td class="n-val">0.6</td><td class="n-val">0.2</td><td class="n-val">0.1</td></tr>
+      <tr><td>一般事務所</td><td class="n-val">0.55~0.57</td><td class="n-val">0.2</td><td class="n-val">0.1</td></tr>
+      <tr><td>工廠</td><td class="n-val">0.58~0.6</td><td class="n-val">座式0.2／立式0.1</td><td class="n-val">0.06</td></tr>
+      <tr><td>店舖</td><td class="n-val">0.55~0.6</td><td class="n-val">0.16</td><td class="n-val">0.04</td></tr>
+    </table>
+    <div class="src-list">
+      公式與係數來源：台灣自來水公司內線用水設備審查要點（各區管理處規定，本工具預設值引用第七區管理處 Y001 內線審查計算表格式，套用新案前務必查核當地現行版本）。<br>
+      冷卻水塔補水估算邏輯（Makeup=E+BD+Drift、COC）：資料中心/高密度機房案通用水量質量平衡法，COC 常見設計範圍 3~6。<br>
+      範例數值來源：龍慶 27MW 案 MIC-VB-WS-CAL-0001 水理計算書 B 版（2026/07/17）、MIC-VB-WS-CAL-0002 冷卻水塔補給水量估算 B 版（2026/07/17）。<br>
+      <b style="color:var(--amber)">設計差異提醒：</b>本工具將 V(製程) 獨立於樓地板面積調整係數(0.9)之外計算，加總時不打折 — 這是較保守、也是通用化後的做法。龍慶案原始送審計算書實際做法是把「空調用水量」併入樓地板面積表的一列，與其他分區一起乘上 0.9 調整係數（451.48×0.9=406.34）。若要逐位元重現送審書上的 406.34/446.97 等數字，需在②的表格內另外新增一列把冷卻水塔補水填進去，並讓③留空；本工具預設拆開兩者，是為了呼應「V(製程)不可用面積法折減估算」的原則。<br>
+      消防用水池另依消防法規查核，不可與生活給水混算，本工具不含消防給水計算。
+    </div>
+  </details>
+
+  <footer class="credit">WATER SUPPLY DEMAND · Vd=(V1+V2+V制程)×安全係數 · Di=4.59√Vd · Dp=6.65√Vd · HP=(1000QH)/(75E)×1.1</footer>
+</div>
+
+<script>
+// ---------- Data ----------
+const ZONE_TYPES = {
+  office:   {label:'辦公室',     eff:0.6,   density:0.2, unit:0.1},
+  general:  {label:'一般事務所',  eff:0.56,  density:0.2, unit:0.1},
+  factory:  {label:'工廠',       eff:0.59,  density:0.2, unit:0.06},
+  shop:     {label:'店舖',       eff:0.575, density:0.16,unit:0.04},
+  custom:   {label:'自訂',       eff:0.5,   density:0.2, unit:0.1},
+};
+
+let state = {
+  v1: { studio:0, house:0, villa:0, unit:250 },
+  v2rows: [ {type:'office', area:663.64, eff:0.6, density:0.2, unit:0.1} ],
+  v2adj: 0.9,
+  vProcess: 443.52,
+  cooling: { E:335, COC:4.1, circ:0, driftPct:0.01 },
+  safetyFactor: 1.1,
+  pipeSizes: '13,20,25,32,40,50,65,75,100,125,150,200,250,300',
+  vgActual: 1676, vtActual: 0,
+  hBuilding: 10.9, hLength: 12, hDiameter: 150, hVelocity: 1.6,
+  qMode: 'vt', // 'vt' | 'manual'
+  vtForQ: 0, qManualLmin: 0,
+  pumpE: 0.6, pumpMargin: 1.1,
+};
+
+function fmt(x, d){
+  if(x===null || x===undefined || !isFinite(x)) return '—';
+  return x.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
+}
+function nearestStandard(list, value){
+  const arr = list.split(',').map(s=>parseFloat(s.trim())).filter(n=>isFinite(n)).sort((a,b)=>a-b);
+  for(const s of arr){ if(s >= value) return s; }
+  return arr.length ? arr[arr.length-1] : null;
+}
+
+// ---------- Pure calc functions ----------
+function calcV1(v1){
+  const persons = v1.studio*2 + v1.house*4 + v1.villa*8;
+  return persons * v1.unit / 1000;
+}
+function calcV2Row(r){
+  // r.unit 已是「每人用水量(M³/人)」，例如辦公室 100L/人 = 0.1 M³/人，故不再額外除以1000
+  return r.area * r.eff * r.density * r.unit;
+}
+function calcV2(rows, adj){
+  const subtotal = rows.reduce((s,r)=>s+calcV2Row(r),0);
+  return { subtotal, v2: subtotal * adj };
+}
+function calcCooling(c){
+  const BD = c.COC>1.01 ? c.E/(c.COC-1) : NaN;
+  const Drift = c.circ>0 ? c.circ * (c.driftPct/100) : c.E * (c.driftPct/100);
+  const Makeup = (isFinite(BD)?BD:0) + c.E + (isFinite(Drift)?Drift:0);
+  return { BD, Drift, Makeup };
+}
+function calcVd(V, factor){ return V * factor; }
+function calcDi(Vd){ return 4.59 * Math.sqrt(Math.max(0,Vd)); }
+function calcDp(Vd){ return 6.65 * Math.sqrt(Math.max(0,Vd)); }
+function calcHead(building, L, Dmm, V){
+  const g = 9.8;
+  const Hs = 0.5 * V*V / (2*g);
+  const Hd = building + Hs;
+  const Ht = 0.02 * (L/Dmm) * V / (2*g);
+  const Hw = (Hs+Hd+Ht) * 0.34;
+  const H = Hs+Hd+Ht+Hw;
+  return {Hs,Hd,Ht,Hw,H};
+}
+function calcHP(Qm3s, H, E, margin){
+  return (1000*Qm3s*H) / (75*E) * margin;
+}
+
+// ---------- V1 ----------
+function bindV1(){
+  document.getElementById('v1Studio').oninput = e=>{ state.v1.studio=parseFloat(e.target.value)||0; render(); };
+  document.getElementById('v1House').oninput  = e=>{ state.v1.house =parseFloat(e.target.value)||0; render(); };
+  document.getElementById('v1Villa').oninput  = e=>{ state.v1.villa =parseFloat(e.target.value)||0; render(); };
+  document.getElementById('v1Unit').oninput   = e=>{ state.v1.unit  =parseFloat(e.target.value)||0; render(); };
+}
+
+// ---------- V2 rows ----------
+function renderV2Rows(){
+  const tbody = document.getElementById('v2Rows');
+  tbody.innerHTML = '';
+  state.v2rows.forEach((r,i)=>{
+    const v2p = calcV2Row(r);
+    const opts = Object.entries(ZONE_TYPES).map(([k,z])=>`<option value="${k}" ${r.type===k?'selected':''}>${z.label}</option>`).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><select data-i="${i}" data-f="type">${opts}</select></td>
+      <td><input type="number" data-i="${i}" data-f="area" value="${r.area}" step="1" min="0"></td>
+      <td><input type="number" data-i="${i}" data-f="eff" value="${r.eff}" step="0.01" min="0" max="1"></td>
+      <td><input type="number" data-i="${i}" data-f="density" value="${r.density}" step="0.01" min="0"></td>
+      <td><input type="number" data-i="${i}" data-f="unit" value="${r.unit}" step="0.01" min="0"></td>
+      <td class="sub-hint" style="font-family:'IBM Plex Mono',monospace; color:var(--text);">${fmt(v2p,2)}</td>
+      <td><button class="rm-btn" data-rm="${i}" type="button">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('select[data-f=type]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const i = +e.target.dataset.i;
+      const z = ZONE_TYPES[e.target.value];
+      state.v2rows[i] = { type:e.target.value, area:state.v2rows[i].area, eff:z.eff, density:z.density, unit:z.unit };
+      renderV2Rows(); render();
+    });
+  });
+  tbody.querySelectorAll('input[type=number]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i = +e.target.dataset.i, f = e.target.dataset.f;
+      state.v2rows[i][f] = parseFloat(e.target.value)||0;
+      renderV2Rows(); render();
+    });
+  });
+  tbody.querySelectorAll('.rm-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      state.v2rows.splice(+e.target.dataset.rm,1);
+      renderV2Rows(); render();
+    });
+  });
+}
+document.getElementById('v2AddRow').onclick = ()=>{
+  state.v2rows.push({type:'office', area:0, eff:0.6, density:0.2, unit:0.1});
+  renderV2Rows(); render();
+};
+document.getElementById('v2Adj').oninput = e=>{ state.v2adj = parseFloat(e.target.value)||0; render(); };
+
+// ---------- V process + cooling tower ----------
+document.getElementById('vProcess').oninput = e=>{ state.vProcess = parseFloat(e.target.value)||0; render(); };
+['ctE','ctCOC','ctCirc','ctDriftPct'].forEach(id=>{
+  document.getElementById(id).oninput = e=>{
+    const map = {ctE:'E', ctCOC:'COC', ctCirc:'circ', ctDriftPct:'driftPct'};
+    state.cooling[map[id]] = parseFloat(e.target.value)||0;
+    render();
+  };
+});
+document.getElementById('ctApply').onclick = ()=>{
+  const {Makeup} = calcCooling(state.cooling);
+  document.getElementById('vProcess').value = Makeup.toFixed(2);
+  state.vProcess = Makeup;
+  render();
+};
+
+// ---------- Step 4 ----------
+document.getElementById('safetyFactor').oninput = e=>{ state.safetyFactor = parseFloat(e.target.value)||0; render(); };
+document.getElementById('pipeSizes').oninput = e=>{ state.pipeSizes = e.target.value; render(); };
+
+// ---------- Step 5 ----------
+document.getElementById('vgActual').oninput = e=>{ state.vgActual = parseFloat(e.target.value)||0; render(); };
+document.getElementById('vtActual').oninput = e=>{ state.vtActual = parseFloat(e.target.value)||0; render(); };
+
+// ---------- Step 7 ----------
+['hBuilding','hLength','hDiameter','hVelocity'].forEach(id=>{
+  document.getElementById(id).oninput = e=>{ state[id] = parseFloat(e.target.value)||0; render(); };
+});
+
+// ---------- Step 8 ----------
+function renderQInputs(){
+  document.getElementById('btnQFromVt').classList.toggle('active', state.qMode==='vt');
+  document.getElementById('btnQManual').classList.toggle('active', state.qMode==='manual');
+  const el = document.getElementById('qInputs');
+  if(state.qMode==='vt'){
+    el.innerHTML = `<div class="field" style="max-width:280px;"><label>水塔容量 Vt (M³)（以30分鐘充滿為標準）</label><input type="number" id="vtForQ" step="1" value="${state.vtForQ}"></div>`;
+    document.getElementById('vtForQ').oninput = e=>{ state.vtForQ = parseFloat(e.target.value)||0; render(); };
+  } else {
+    el.innerHTML = `<div class="field" style="max-width:280px;"><label>揚水量 Q（L/min）</label><input type="number" id="qManualLmin" step="1" value="${state.qManualLmin}"></div>`;
+    document.getElementById('qManualLmin').oninput = e=>{ state.qManualLmin = parseFloat(e.target.value)||0; render(); };
+  }
+}
+document.getElementById('btnQFromVt').onclick = ()=>{ state.qMode='vt'; renderQInputs(); render(); };
+document.getElementById('btnQManual').onclick = ()=>{ state.qMode='manual'; renderQInputs(); render(); };
+['pumpE','pumpMargin'].forEach(id=>{
+  document.getElementById(id).oninput = e=>{ state[id] = parseFloat(e.target.value)||0; render(); };
+});
+
+// ---------- Master render ----------
+function render(){
+  // V1
+  const V1 = calcV1(state.v1);
+  document.getElementById('outV1').innerHTML = fmt(V1,2)+'<span>M³/日</span>';
+
+  // V2
+  const {subtotal, v2} = calcV2(state.v2rows, state.v2adj);
+  document.getElementById('outV2').innerHTML = fmt(subtotal,2)+' → '+fmt(v2,2)+'<span>M³/日</span>';
+
+  // cooling tower
+  const {BD, Drift, Makeup} = calcCooling(state.cooling);
+  document.getElementById('outMakeup').innerHTML = `${fmt(BD,2)} / ${fmt(Drift,3)} / ${fmt(Makeup,2)}<span>M³/日</span>`;
+
+  // V total
+  const V = V1 + v2 + state.vProcess;
+  document.getElementById('outV').innerHTML = fmt(V,2)+'<span>M³/日</span>';
+
+  // auto safety factor suggestion (only auto-fill on load, respect manual override thereafter via state.safetyFactor already bound)
+  // Vd
+  const Vd = calcVd(V, state.safetyFactor);
+  document.getElementById('outVd').innerHTML = fmt(Vd,2)+'<span>M³/日</span>';
+
+  // Di
+  const DiCalc = calcDi(Vd);
+  const DiStd = nearestStandard(state.pipeSizes, DiCalc);
+  document.getElementById('outDi').innerHTML = `${fmt(DiCalc,1)} → ${fmt(DiStd,0)}<span>mm</span>`;
+
+  // Storage
+  const vgMin = Vd*0.2, totalMin = Vd*3.0;
+  document.getElementById('outStorageMin').innerHTML = `${fmt(vgMin,2)} / ${fmt(totalMin,2)}<span>M³</span>`;
+  const storageChecks = document.getElementById('storageChecks');
+  storageChecks.innerHTML = '';
+  addCheck(storageChecks, state.vgActual >= vgMin, `蓄水池 VG ${fmt(state.vgActual,1)} M³ ${state.vgActual>=vgMin?'符合':'不足'} 20%Vd 下限 ${fmt(vgMin,2)} M³`);
+  const totalActual = state.vgActual + state.vtActual;
+  addCheck(storageChecks, totalActual >= totalMin, `蓄水池+水塔合計 ${fmt(totalActual,1)} M³ ${totalActual>=totalMin?'符合':'不足'} 300%Vd 下限 ${fmt(totalMin,2)} M³`);
+
+  // Dp
+  const DpCalc = calcDp(Vd);
+  const DpStd = nearestStandard(state.pipeSizes, DpCalc);
+  document.getElementById('outDp').innerHTML = `${fmt(DpCalc,1)} → ${fmt(DpStd,0)}<span>mm</span>`;
+
+  // Head
+  const head = calcHead(state.hBuilding, state.hLength, state.hDiameter, state.hVelocity);
+  document.getElementById('outHParts').innerHTML = `${fmt(head.Hs,4)} / ${fmt(head.Hd,4)} / ${fmt(head.Ht,4)} / ${fmt(head.Hw,4)}<span>m</span>`;
+  document.getElementById('outH').innerHTML = fmt(head.H,4)+'<span>m</span>';
+
+  // Pump Q & HP
+  let Qm3s;
+  if(state.qMode==='vt'){
+    Qm3s = state.vtForQ / (30*60);
+  } else {
+    Qm3s = (state.qManualLmin/1000) / 60;
+  }
+  const Qlmin = Qm3s*60*1000;
+  document.getElementById('outQ').innerHTML = fmt(Qlmin,1)+'<span>L/min</span>';
+  const HP = calcHP(Qm3s, head.H, state.pumpE, state.pumpMargin);
+  document.getElementById('outHP').innerHTML = fmt(HP,3)+'<span>HP</span>';
+
+  // Summary strip
+  const sum = document.getElementById('summary');
+  sum.innerHTML = `
+    <div class="sum-item"><div class="k">Vd 設計用水量</div><div class="v">${fmt(Vd,1)}<span>M³/日</span></div></div>
+    <div class="sum-item"><div class="k">Di 進水口徑</div><div class="v">${fmt(DiStd,0)}<span>mm</span></div></div>
+    <div class="sum-item"><div class="k">蓄水池+水塔需求</div><div class="v">${totalActual>=totalMin?'合格':'不足'}<span>300%Vd</span></div></div>
+    <div class="sum-item"><div class="k">泵浦馬力 HP</div><div class="v">${fmt(HP,2)}<span>HP</span></div></div>
+  `;
+
+  writeHash();
+}
+function addCheck(container, pass, html){
+  const d = document.createElement('div');
+  d.className = 'check ' + (pass?'pass':'fail');
+  d.innerHTML = `<span class="icon">${pass?'✓':'✕'}</span><span class="txt">${html}</span>`;
+  container.appendChild(d);
+}
+
+// ---------- 分享 / 列印 ----------
+document.getElementById('btnShare').onclick = async function(){
+  writeHash();
+  const btn = this; const url = location.href;
+  try{ await navigator.clipboard.writeText(url); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){ prompt('複製這段網址：', url); }
+    document.body.removeChild(ta);
+  }
+  btn.textContent = '已複製連結'; btn.classList.add('done');
+  setTimeout(()=>{ btn.textContent='複製分享連結'; btn.classList.remove('done'); }, 2000);
+};
+document.getElementById('btnPrint').onclick = ()=> window.print();
+
+// ---------- 網址狀態同步 ----------
+function writeHash(){
+  const p = new URLSearchParams();
+  p.set('s', JSON.stringify(state));
+  history.replaceState(null, '', '#' + p.toString());
+}
+function readHash(){
+  if(!location.hash || location.hash.length<2) return;
+  const p = new URLSearchParams(location.hash.slice(1));
+  try{ if(p.has('s')) state = Object.assign(state, JSON.parse(p.get('s'))); }catch(e){}
+}
+
+readHash();
+bindV1();
+document.getElementById('v1Studio').value = state.v1.studio;
+document.getElementById('v1House').value = state.v1.house;
+document.getElementById('v1Villa').value = state.v1.villa;
+document.getElementById('v1Unit').value = state.v1.unit;
+document.getElementById('v2Adj').value = state.v2adj;
+document.getElementById('vProcess').value = state.vProcess;
+document.getElementById('ctE').value = state.cooling.E;
+document.getElementById('ctCOC').value = state.cooling.COC;
+document.getElementById('ctCirc').value = state.cooling.circ;
+document.getElementById('ctDriftPct').value = state.cooling.driftPct;
+document.getElementById('safetyFactor').value = state.safetyFactor;
+document.getElementById('pipeSizes').value = state.pipeSizes;
+document.getElementById('vgActual').value = state.vgActual;
+document.getElementById('vtActual').value = state.vtActual;
+document.getElementById('hBuilding').value = state.hBuilding;
+document.getElementById('hLength').value = state.hLength;
+document.getElementById('hDiameter').value = state.hDiameter;
+document.getElementById('hVelocity').value = state.hVelocity;
+document.getElementById('pumpE').value = state.pumpE;
+document.getElementById('pumpMargin').value = state.pumpMargin;
+renderV2Rows();
+renderQInputs();
+render();
+</script>
+</body>
+</html>
