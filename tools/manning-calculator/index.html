@@ -3,24 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manning 逕流計算機</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>圓管重力流水理計算機（Manning） — MEP 工具箱</title>
+<meta name="color-scheme" content="dark light">
 <style>
   :root{
-    --bg:#0b1622;
-    --panel:#101f30;
-    --panel-2:#0d1a29;
-    --grid:rgba(94,234,212,0.055);
-    --border-real:#22384d;
-    --accent:#5eead4;
-    --accent-dim:#2f5a54;
-    --amber:#f5b942;
-    --good:#34d399;
-    --bad:#f87171;
-    --text:#e8eef4;
-    --text-dim:#8ea0b5;
-    --text-dimmer:#5b7086;
+    --bg:#0b1622; --panel:#101f30; --panel-2:#0d1a29;
+    --grid:rgba(94,234,212,0.055); --border-real:#22384d;
+    --accent:#5eead4; --accent-dim:#2f5a54; --amber:#f5b942;
+    --good:#34d399; --bad:#f87171; --info:#60a5fa;
+    --text:#e8eef4; --text-dim:#8ea0b5; --text-dimmer:#5b7086;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono','Noto Sans Mono',monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
   }
   *{box-sizing:border-box;}
   body{
@@ -29,188 +22,177 @@
       linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
       linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px,
       var(--bg);
-    color:var(--text);
-    font-family:'Inter',system-ui,sans-serif;
-    padding:20px 14px 60px;
-    -webkit-font-smoothing:antialiased;
+    color:var(--text); font-family:var(--sans);
+    padding:20px 14px 60px; -webkit-font-smoothing:antialiased;
   }
-  .wrap{ max-width:920px; margin:0 auto; }
-  .eyebrow{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:11px;
-    letter-spacing:0.18em;
-    color:var(--accent);
-    text-transform:uppercase;
-    margin-bottom:6px;
-  }
-  h1{
-    font-size:26px;
-    margin:0 0 4px;
-    font-weight:700;
-    letter-spacing:-0.01em;
-  }
-  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 22px; line-height:1.5; }
+  .wrap{ max-width:1000px; margin:0 auto; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:0.18em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  h1{ font-size:26px; margin:0 0 4px; font-weight:700; letter-spacing:-0.01em; }
+  .subtitle{ color:var(--text-dim); font-size:14px; margin:0 0 20px; line-height:1.6; }
 
-  .segmented{
-    display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;
-    background:var(--panel-2); padding:5px; border-radius:12px; border:1px solid var(--border-real);
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .back{ display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:12px; color:var(--text-dim); text-decoration:none; padding:7px 12px 7px 9px; border-radius:8px; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .actions{ display:flex; gap:7px; flex-wrap:wrap; }
+  .action-btn{ font-family:var(--mono); font-size:12px; color:var(--text-dim); padding:7px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--border-real); background:var(--panel-2); transition:color .15s,border-color .15s; }
+  .action-btn:hover{ color:var(--accent); border-color:var(--accent-dim); }
+  .action-btn.done{ color:var(--good); border-color:rgba(52,211,153,.45); }
+  .action-btn:focus-visible, .add-row-btn:focus-visible, .rm-btn:focus-visible,
+  .toggle-pair button:focus-visible, .seg-btn:focus-visible,
+  input:focus-visible, select:focus-visible, summary:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
   }
-  .seg-btn{
-    flex:1 1 auto; min-width:74px;
-    background:transparent; border:none; color:var(--text-dim);
-    font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;
-    padding:9px 8px; border-radius:8px; cursor:pointer;
-    transition:background .15s,color .15s;
-    text-align:center;
-  }
-  .seg-btn .lbl{ display:block; font-family:'Inter',sans-serif; font-weight:500; font-size:10.5px; color:var(--text-dimmer); margin-top:2px;}
-  .seg-btn.active{ background:var(--accent); color:#04211d; }
-  .seg-btn.active .lbl{ color:#0a3934; }
-  .seg-btn:hover:not(.active){ background:#152944; color:var(--text); }
 
-  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-  @media (max-width:720px){ .grid2{ grid-template-columns: 1fr; } }
+  .summary{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+  @media (max-width:760px){ .summary{ grid-template-columns:repeat(2,1fr); } }
+  .sum-item{ background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:12px 14px; }
+  .sum-item .k{ font-size:10.5px; color:var(--text-dimmer); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px; }
+  .sum-item .v{ font-family:var(--mono); font-size:19px; color:var(--accent); font-weight:700; word-break:break-all; }
+  .sum-item .v span{ font-size:11px; color:var(--text-dim); font-weight:500; margin-left:3px; }
+  .sum-item.ok .v{ color:var(--good); } .sum-item.bad .v{ color:var(--bad); }
 
-  .card{
-    background:var(--panel);
-    border:1px solid var(--border-real);
-    border-radius:14px;
-    padding:18px 18px 20px;
-  }
-  .card h2{
-    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
-    color:var(--text-dim); margin:0 0 14px; font-weight:600;
-    display:flex; align-items:center; gap:8px;
-  }
-  .card h2::after{ content:''; flex:1; height:1px; background:var(--border-real); }
+  .step, .card{ background:var(--panel); border:1px solid var(--border-real); border-radius:14px; padding:18px 18px 20px; margin-bottom:14px; }
+  .step-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  .step-num{ font-family:var(--mono); font-size:12px; color:var(--accent); font-weight:700; }
+  .step h2, .card h2{ font-size:15px; margin:0; font-weight:700; flex:1; }
+  .step .step-sub{ color:var(--text-dim); font-size:12.5px; margin:2px 0 14px; line-height:1.6; }
+  .formula-line{ font-family:var(--mono); font-size:12.5px; color:var(--accent); background:var(--panel-2); border:1px solid var(--border-real); border-left:2px solid var(--accent); padding:8px 11px; border-radius:0 7px 7px 0; margin:0 0 14px; overflow-x:auto; }
 
   .field{ margin-bottom:14px; }
   .field:last-child{ margin-bottom:0; }
-  .field label{
-    display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500;
-  }
-  .row{ display:flex; gap:8px; align-items:center; }
-  .row .hint{ font-family:'IBM Plex Mono',monospace; color:var(--text-dimmer); font-size:12px; white-space:nowrap; }
-  input[type=number], select{
-    width:100%; background:var(--panel-2); border:1px solid var(--border-real);
-    color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:15px;
-    padding:9px 10px; border-radius:8px; outline:none;
-    transition:border-color .15s;
-  }
-  input[type=number]:focus, select:focus{ border-color:var(--accent); }
-  select{ cursor:pointer; }
-  .sub-hint{ font-size:11px; color:var(--text-dimmer); margin-top:5px; font-family:'IBM Plex Mono',monospace; }
-  .disabled-field{ opacity:0.35; pointer-events:none; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; line-height:1.4; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:720px){ .grid2,.grid3,.grid4{ grid-template-columns:1fr; } }
 
-  .toggle-pair{ display:flex; gap:6px; margin-bottom:12px; }
-  .toggle-pair button{
-    flex:1; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim);
-    font-size:12.5px; font-weight:600; padding:7px; border-radius:7px; cursor:pointer;
-    font-family:'Inter',sans-serif;
-  }
+  input[type=number], input[type=text], select{ width:100%; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text); font-family:var(--mono); font-size:15px; padding:9px 10px; border-radius:8px; outline:none; transition:border-color .15s; }
+  input[type=number]:focus, input[type=text]:focus, select:focus{ border-color:var(--accent); }
+  input[type=number].dirty, input[type=text].dirty{ border-color:var(--amber); }
+  select{ cursor:pointer; font-family:var(--sans); }
+  .sub-hint{ font-size:11.5px; color:var(--text-dimmer); margin-top:5px; font-family:var(--mono); line-height:1.5; }
+  .sub-hint b{ color:var(--text-dim); }
+
+  table.rows-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:10px; }
+  table.rows-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 5px; border-bottom:1px solid var(--border-real); font-size:10px; letter-spacing:.04em; text-transform:uppercase; }
+  table.rows-table td{ padding:5px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  table.rows-table input{ padding:7px; font-size:13px; }
+  table.rows-table select{ padding:7px; font-size:12.5px; }
+  td.calc-cell{ font-family:var(--mono); color:var(--text); text-align:right; white-space:nowrap; }
+  .table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .table-scroll table{ min-width:600px; }
+  .rm-btn{ background:transparent; border:1px solid var(--border-real); color:var(--bad); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:15px; line-height:1; }
+  .add-row-btn{ font-family:var(--mono); font-size:12px; color:var(--accent); background:var(--panel-2); border:1px dashed var(--accent-dim); border-radius:8px; padding:8px 13px; cursor:pointer; }
+
+  .result-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; margin-top:6px; flex-wrap:wrap; }
+  .result-row.primary{ border-color:var(--accent-dim); }
+  .result-row .lbl{ font-size:12.5px; color:var(--text-dim); }
+  .result-row .val{ font-family:var(--mono); font-size:20px; color:var(--accent); font-weight:700; }
+  .result-row .val.sm{ font-size:15px; }
+  .result-row .val span{ font-size:12px; color:var(--text-dim); font-weight:500; margin-left:4px; }
+
+  .check{ display:flex; align-items:flex-start; gap:10px; padding:9px 11px; border-radius:9px; border:1px solid var(--border-real); background:var(--panel-2); font-size:12.5px; margin-top:8px; }
+  .check .icon{ font-size:14px; width:18px; text-align:center; flex-shrink:0; line-height:1.5; }
+  .check.pass{ border-color:rgba(52,211,153,0.35); } .check.pass .icon{ color:var(--good); }
+  .check.fail{ border-color:rgba(248,113,113,0.4); } .check.fail .icon{ color:var(--bad); }
+  .check.warn{ border-color:rgba(245,185,66,.4); } .check.warn .icon{ color:var(--amber); }
+  .check.info{ border-color:rgba(96,165,250,.35); } .check.info .icon{ color:var(--info); }
+  .check .txt{ color:var(--text-dim); line-height:1.55; }
+  .check .txt b{ color:var(--text); }
+
+  .toggle-pair{ display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .toggle-pair button{ flex:1 1 140px; background:var(--panel-2); border:1px solid var(--border-real); color:var(--text-dim); font-size:12.5px; font-weight:600; padding:9px 8px; border-radius:7px; cursor:pointer; font-family:var(--sans); }
   .toggle-pair button.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
 
-  .result-hero{
-    text-align:center; padding:14px 6px 18px; border-bottom:1px dashed var(--border-real); margin-bottom:16px;
-  }
-  .result-label{ font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
-  .result-value{ font-family:'IBM Plex Mono',monospace; font-size:38px; font-weight:700; color:var(--accent); line-height:1; }
-  .result-unit{ font-size:14px; color:var(--text-dim); margin-left:6px; }
-  .result-sub{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text-dimmer); margin-top:6px; }
-
-  .derived-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
-  .derived-item{ background:var(--panel-2); border:1px solid var(--border-real); border-radius:9px; padding:9px 8px; text-align:center; }
-  .derived-item .k{ font-size:10px; color:var(--text-dimmer); letter-spacing:.04em; margin-bottom:3px;}
-  .derived-item .v{ font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--text); }
-
-  .pipe-wrap{ display:flex; justify-content:center; margin-bottom:14px; }
-
-  .checks{ display:flex; flex-direction:column; gap:8px; }
-  .check{
-    display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:9px;
-    border:1px solid var(--border-real); background:var(--panel-2); font-size:12.5px;
-  }
-  .check .icon{ font-size:15px; width:18px; text-align:center; flex-shrink:0; }
-  .check.pass{ border-color:rgba(52,211,153,0.35); }
-  .check.pass .icon{ color:var(--good); }
-  .check.fail{ border-color:rgba(248,113,113,0.4); }
-  .check.fail .icon{ color:var(--bad); }
-  .check .txt b{ color:var(--text); }
-  .check .txt{ color:var(--text-dim); line-height:1.4; }
-
-  details.refs{ margin-top:18px; background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:4px 16px; }
+  details.sub{ margin-top:8px; background:var(--panel-2); border:1px solid var(--border-real); border-radius:10px; padding:2px 14px; }
+  details.sub summary{ cursor:pointer; padding:10px 0; font-size:12.5px; color:var(--accent); font-weight:600; }
+  details.sub summary::marker{ color:var(--accent); }
+  details.refs{ margin-top:4px; background:var(--panel); border:1px solid var(--border-real); border-radius:12px; padding:4px 16px; }
   details.refs summary{ cursor:pointer; padding:12px 0; font-size:13px; color:var(--text-dim); font-weight:600; }
   details.refs summary::marker{ color:var(--accent); }
   .ref-table{ width:100%; border-collapse:collapse; font-size:12px; margin:6px 0 14px; }
   .ref-table th{ text-align:left; color:var(--text-dimmer); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border-real); font-size:11px;}
   .ref-table td{ padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-dim); }
-  .ref-table td.n-val{ font-family:'IBM Plex Mono',monospace; color:var(--accent); }
-  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.7; padding-bottom:14px; }
+  .ref-table td.n-val{ font-family:var(--mono); color:var(--accent); }
+  .ref-table tr.hi td{ background:rgba(94,234,212,.07); }
+  .src-list{ font-size:11.5px; color:var(--text-dimmer); line-height:1.75; padding-bottom:14px; }
+  .src-list b{ color:var(--text-dim); }
 
-  .config-row{ display:flex; gap:8px; }
-  .config-row .field{ flex:1; }
-  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:'IBM Plex Mono',monospace; }
+  .notice{ display:flex; gap:10px; padding:11px 13px; border-radius:9px; border:1px solid rgba(245,185,66,.4); background:rgba(245,185,66,.08); font-size:12.5px; color:var(--text-dim); line-height:1.65; margin-bottom:14px; }
+  .notice b{ color:var(--amber); }
+  .notice.info{ border-color:rgba(96,165,250,.35); background:rgba(96,165,250,.07); }
+  .notice.info b{ color:var(--info); }
 
-  /* ── 導覽列 ───────────────────────────────── */
-  .topbar{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-    margin-bottom:18px; flex-wrap:wrap;
-  }
-  .back{
-    display:inline-flex; align-items:center; gap:7px;
-    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);
-    text-decoration:none; padding:6px 12px 6px 9px; border-radius:8px;
-    border:1px solid var(--border-real); background:var(--panel-2);
-    transition:color .15s, border-color .15s;
-  }
-  .back:hover{ color:var(--accent); border-color:var(--accent-dim); }
-  .back svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  footer.credit{ text-align:center; color:var(--text-dimmer); font-size:11px; margin-top:20px; font-family:var(--mono); line-height:1.7; }
+  .print-only{ display:none; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
-  .actions{ display:flex; gap:7px; }
-  .action-btn{
-    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);
-    padding:6px 12px; border-radius:8px; cursor:pointer;
-    border:1px solid var(--border-real); background:var(--panel-2);
-    transition:color .15s, border-color .15s;
-  }
-  .action-btn:hover{ color:var(--accent); border-color:var(--accent-dim); }
-  .action-btn.done{ color:var(--good); border-color:rgba(52,211,153,.45); }
-
-  /* ── 列印：輸出成報告附件用 ─────────────────── */
   @media print{
-    body{ background:#fff; color:#000; padding:0; }
-    .topbar, .segmented, details.refs summary{ display:none !important; }
-    .card, .derived-item, .check, details.refs{ background:#fff !important; border-color:#999 !important; }
-    .result-value, .n-val, .card h2, .eyebrow{ color:#000 !important; }
-    .subtitle, .result-label, .derived-item .k, .check .txt, .src-list{ color:#333 !important; }
-    .grid2{ grid-template-columns:1fr 1fr !important; }
-    details.refs{ display:block; }
-    details.refs > *:not(summary){ display:block !important; }
+    @page{ margin:14mm; }
+    body{ background:#fff; color:#000; padding:0; font-size:11px; }
+    .topbar, .add-row-btn, .rm-btn{ display:none !important; }
+    .print-only{ display:block; }
+    .step, .card, .result-row, .check, details, .summary, .sum-item, .notice{
+      background:#fff !important; border-color:#999 !important; break-inside:avoid;
+    }
+    .result-row .val, .n-val, .step h2, .card h2, .eyebrow, .formula-line,
+    .sum-item .v, h1, .calc-cell{ color:#000 !important; }
+    .subtitle, .step-sub, .src-list, .sub-hint, .check .txt, .notice{ color:#333 !important; }
+    input, select{ color:#000 !important; background:#fff !important; border-color:#bbb !important; }
+    details{ display:block; } details > *:not(summary){ display:block !important; }
+    details summary{ color:#000 !important; font-weight:700; }
+    a[href]:after{ content:''; }
   }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
 
-  @media (prefers-reduced-motion:reduce){
-    *{ transition:none !important; }
-  }
+  .segmented{ display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-bottom:16px; }
+  @media (max-width:640px){ .segmented{ grid-template-columns:repeat(3,1fr); } }
+  .seg-btn{ background:var(--panel); border:1px solid var(--border-real); color:var(--text-dim);
+    border-radius:10px; padding:11px 6px; cursor:pointer; font-family:var(--mono); font-size:16px;
+    font-weight:700; display:flex; flex-direction:column; align-items:center; gap:3px; transition:all .15s; }
+  .seg-btn .lbl{ font-family:var(--sans); font-size:10.5px; font-weight:500; }
+  .seg-btn.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+  .result-hero{ text-align:center; padding:18px 0 10px; }
+  .result-label{ font-size:12px; color:var(--text-dim); margin-bottom:6px; }
+  .result-value{ font-family:var(--mono); font-size:40px; font-weight:700; color:var(--accent); letter-spacing:-0.02em; }
+  .result-unit{ font-family:var(--mono); font-size:15px; color:var(--text-dim); margin-left:5px; }
+  .result-sub{ font-size:12px; color:var(--text-dimmer); margin-top:8px; font-family:var(--mono); line-height:1.6; }
+  .derived-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:14px 0; }
+  .derived-item{ background:var(--panel-2); border:1px solid var(--border-real); border-radius:9px; padding:9px 10px; text-align:center; }
+  .derived-item .k{ font-size:10px; color:var(--text-dimmer); margin-bottom:3px; }
+  .derived-item .v{ font-family:var(--mono); font-size:13.5px; color:var(--text); }
+  .pipe-wrap{ display:flex; justify-content:center; margin:6px 0 12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <nav class="topbar">
     <a class="back" href="../../">
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
       回工具箱
     </a>
     <div class="actions">
+      <button class="action-btn" id="btnReset" type="button">回復預設值</button>
       <button class="action-btn" id="btnShare" type="button">複製分享連結</button>
       <button class="action-btn" id="btnPrint" type="button">列印 / 存 PDF</button>
     </div>
   </nav>
+  <div class="print-only" style="font-size:10px;color:#555;margin-bottom:8px;" id="printStamp"></div>
 
-  <div class="eyebrow">MEP // 排水 / 給水工具 ・ HYD-01</div>
-  <h1>Manning 逕流計算機</h1>
-  <p class="subtitle">選擇「要算什麼」，其餘欄位當作已知條件輸入 — 適用重力排水管（圓形管、部分充滿流）的流速、流量、坡度、管徑、粗糙係數與充滿度互解。</p>
+  <div class="eyebrow">MEP // 排水・給水工具 ・ HYD-01</div>
+  <h1>圓管重力流水理計算機（Manning）</h1>
+  <p class="subtitle">選擇要求解的變數，其餘當作已知條件輸入 — 流速 V、流量 Q、坡度 S、管徑 D、粗糙係數 n、充滿度 r 六者互解，內建自淨流速、流速上限、最大充滿度與法規最低坡度檢核。</p>
 
-  <div class="segmented" id="solveSelector"></div>
+  <div class="notice info">
+    <span aria-hidden="true">ℹ️</span>
+    <span>本工具解的是<b>等速均勻流（uniform flow）</b>下的圓管部分充滿流。實際管網有跌水、彎道、匯流、回水（backwater）與非均勻流段，逐段設計仍須考慮這些效應。壓力流（滿管加壓）不適用 Manning，請改用 Hazen–Williams 或 Darcy–Weisbach。</span>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+
+  <div class="segmented" id="solveSelector" role="group" aria-label="選擇要求解的變數"></div>
 
   <div class="grid2">
     <div class="card" id="inputCard">
@@ -225,471 +207,572 @@
         <div><span class="result-value" id="resultValue">—</span><span class="result-unit" id="resultUnit">m/s</span></div>
         <div class="result-sub" id="resultSub"></div>
       </div>
-
       <div class="derived-grid" id="derivedGrid"></div>
-
       <div class="pipe-wrap">
-        <svg id="pipeSvg" width="150" height="130" viewBox="0 0 150 130">
+        <svg id="pipeSvg" width="160" height="140" viewBox="0 0 160 140" role="img" aria-labelledby="pipeLabel">
           <defs>
             <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#5eead4" stop-opacity="0.85"/>
               <stop offset="100%" stop-color="#1a8f82" stop-opacity="0.95"/>
             </linearGradient>
-            <clipPath id="waterClip"><rect id="waterRect" x="0" y="130" width="150" height="0"/></clipPath>
+            <clipPath id="waterClip"><rect id="waterRect" x="0" y="140" width="160" height="0"/></clipPath>
           </defs>
-          <circle cx="75" cy="65" r="52" fill="none" stroke="#2a4360" stroke-width="2.5"/>
-          <circle cx="75" cy="65" r="52" fill="url(#waterGrad)" clip-path="url(#waterClip)"/>
-          <line id="waterLine" x1="23" y1="65" x2="127" y2="65" stroke="#5eead4" stroke-width="1.3" stroke-dasharray="3,3" opacity="0.9"/>
-          <text id="pipeLabel" x="75" y="122" text-anchor="middle" fill="#8ea0b5" font-size="10.5" font-family="IBM Plex Mono, monospace">充滿度 —</text>
+          <circle cx="80" cy="68" r="54" fill="none" stroke="#2a4360" stroke-width="2.5"/>
+          <circle cx="80" cy="68" r="54" fill="url(#waterGrad)" clip-path="url(#waterClip)"/>
+          <line id="waterLine" x1="26" y1="68" x2="134" y2="68" stroke="#5eead4" stroke-width="1.3" stroke-dasharray="3,3" opacity="0.9"/>
+          <text id="pipeLabel" x="80" y="132" text-anchor="middle" fill="#8ea0b5" font-size="10.5" font-family="ui-monospace,monospace">充滿度 —</text>
         </svg>
       </div>
-
       <div class="checks" id="checks"></div>
     </div>
   </div>
 
+  <div class="card">
+    <h2>滿管特性與充滿度曲線</h2>
+    <div class="step-sub">圓管部分充滿流有一個反直覺的性質：<b>流速在 r ≈ 81% 時最大、流量在 r ≈ 94% 時最大，都不是滿管</b>。也就是說同一個目標流量在 r &lt; 94% 的範圍內可能有<b>兩個</b>解，而流量略高於滿管值時仍然有解。這是原版工具用二分法求充滿度時會誤判「無解」的原因。</div>
+    <div class="derived-grid" id="fullGrid" style="grid-template-columns:repeat(4,1fr);"></div>
+  </div>
+
+  <div class="card">
+    <h2>檢核門檻設定</h2>
+    <div class="grid4">
+      <div class="field"><label for="cfgVmin">自淨流速下限 (m/s)</label><input type="number" id="cfgVmin" step="0.05" min="0"></div>
+      <div class="field"><label for="cfgVmax">流速上限 (m/s)</label><input type="number" id="cfgVmax" step="0.1" min="0"></div>
+      <div class="field"><label for="cfgRmax">建議最大充滿度 (%)</label><input type="number" id="cfgRmax" step="5" min="10" max="100"></div>
+      <div class="field"><label for="cfgUse">用途</label>
+        <select id="cfgUse">
+          <option value="sewer">污水管（重力）</option>
+          <option value="storm">雨水管／基地排水</option>
+          <option value="none">不套用預設門檻</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px;"><label for="cfgSizes">標準管徑對照表 (mm，逗號分隔)</label><input type="text" id="cfgSizes"></div>
+  </div>
+
+
   <details class="refs">
-    <summary>參考來源與 Manning n 值表</summary>
+    <summary>參考來源、n 值表與坡度規定</summary>
     <table class="ref-table">
-      <tr><th>材質</th><th>設計值 n</th><th>常見範圍</th></tr>
-      <tr><td>PVC／塑膠管</td><td class="n-val">0.010</td><td>0.009–0.011</td></tr>
-      <tr><td>混凝土管</td><td class="n-val">0.013</td><td>0.012–0.016</td></tr>
-      <tr><td>延展鑄鐵／鑄鐵管</td><td class="n-val">0.013</td><td>0.012–0.015</td></tr>
-      <tr><td>陶管（缸瓦管）</td><td class="n-val">0.013</td><td>0.011–0.017</td></tr>
-      <tr><td>波紋鋼管／HDPE 雙壁波紋管</td><td class="n-val">0.024</td><td>0.021–0.030</td></tr>
-      <tr><td>磚砌／水泥砂漿</td><td class="n-val">0.015</td><td>0.012–0.017</td></tr>
-      <tr><td>鋼管（平滑焊接）</td><td class="n-val">0.012</td><td>0.011–0.015</td></tr>
+      <caption class="sr-only">Manning 粗糙係數表</caption>
+      <thead><tr><th>材質</th><th>設計值 n</th><th>常見範圍</th></tr></thead>
+      <tbody>
+        <tr><td>PVC／塑膠管</td><td class="n-val">0.010</td><td>0.009–0.011</td></tr>
+        <tr><td>混凝土管</td><td class="n-val">0.013</td><td>0.012–0.016</td></tr>
+        <tr><td>延展鑄鐵／鑄鐵管</td><td class="n-val">0.013</td><td>0.012–0.015</td></tr>
+        <tr><td>陶管（缸瓦管）</td><td class="n-val">0.013</td><td>0.011–0.017</td></tr>
+        <tr><td>HDPE 雙壁波紋管／波紋鋼管</td><td class="n-val">0.024</td><td>0.021–0.030</td></tr>
+        <tr><td>磚砌／水泥砂漿</td><td class="n-val">0.015</td><td>0.012–0.017</td></tr>
+        <tr><td>鋼管（平滑焊接）</td><td class="n-val">0.012</td><td>0.011–0.015</td></tr>
+      </tbody>
+    </table>
+    <table class="ref-table">
+      <caption class="sr-only">排水橫管坡度規定</caption>
+      <thead><tr><th>管徑 (mm)</th><th>§4.2.3 條文最小坡度</th><th>表 4-1 最小坡度</th></tr></thead>
+      <tbody>
+        <tr><td>30 ~ 75</td><td class="n-val">1/50</td><td class="n-val">1/50 ~ 1/100</td></tr>
+        <tr><td>100 ~ 125</td><td class="n-val">1/100</td><td class="n-val">1/150</td></tr>
+        <tr><td>150</td><td class="n-val">1/100</td><td class="n-val">1/200</td></tr>
+        <tr><td>200 以上</td><td class="n-val">1/100</td><td class="n-val">§4.2.6：流速 ≥0.6 m/s 時坡度可較平緩</td></tr>
+      </tbody>
     </table>
     <div class="src-list">
-      n 值來源：Chow, V.T. (1959) <i>Open-Channel Hydraulics</i>；FHWA HEC-22 (2009) <i>Urban Drainage Design Manual</i>, 3rd Ed.；Uni-Bell PVC Pipe Association 技術報告。<br>
-      自淨流速門檻（預設 0.6 m/s）來源：T.R. Camp, "Minimum velocities for sewers," <i>Journal of Boston Society of Civil Engineers</i>, 1942/1946（各國規範採用範圍 0.6–0.9 m/s）。<br>
-      法規最低坡度檢核（管徑 &gt;75mm ≥ 1/100，≤75mm ≥ 1/50）依據：建築物給水排水設備設計技術規範第 4.2.3 條。
+      <b>幾何式</b>（θ 為水面對應圓心角，rad；r = h/D）：θ = 2·arccos(1−2r)；A = D²(θ−sinθ)/8；P = Dθ/2；R = A/P = D(θ−sinθ)/(4θ)。<br>
+      <b>Manning</b>：V = (1/n)·R^(2/3)·S^(1/2)，Q = A·V。適用等速均勻流之明渠／重力管，SI 單位制。<br>
+      <b>滿管特性</b>：V<sub>max</sub>/V<sub>full</sub> ≈ 1.140 於 r ≈ 0.813；Q<sub>max</sub>/Q<sub>full</sub> ≈ 1.076 於 r ≈ 0.938。工具會以掃描法找出全部根，不再用單調性假設的二分法。<br>
+      <b>n 值來源</b>：Chow, V.T. (1959) <i>Open-Channel Hydraulics</i>；FHWA HEC-22 (2009) <i>Urban Drainage Design Manual</i> 3rd Ed.；Uni-Bell PVC Pipe Association 技術報告。<br>
+      <b>自淨流速</b>：T.R. Camp, "Minimum velocities for sewers," <i>Journal of Boston Society of Civil Engineers</i> (1942/1946)。各國規範採用 0.6–0.9 m/s；雨水管因挾砂量較高常取較嚴的 0.75–0.9 m/s。<br>
+      <b>坡度與最小管徑</b>：《建築物給水排水設備設計技術規範》§4.2.3（管徑 ≤75 mm 坡度不得小於 1/50，>75 mm 不得小於 1/100）、表 4-1、§4.2.6（≥200 mm 且流速 ≥0.6 m/s 得放寬）、§4.1.2（排水管最小管徑 30 mm）。條文與表 4-1 之間存在落差，工具同時顯示兩者。<br>
+      <b>最大充滿度</b>：法規未明訂統一值。實務上污水管常設計在 0.5D~0.7D（保留通氣斷面、容納尖峰與未來增量），雨水管可容許接近滿管。此門檻工具做成可調欄位而非寫死。<br>
+      <b>不適用情形</b>：壓力流（滿管加壓）、超臨界流的水躍段、極小充滿度（r &lt; 約 10% 時 Manning 精度下降）、非圓形斷面。
     </div>
   </details>
 
-  <details class="refs">
-    <summary>檢核門檻設定（可自訂）</summary>
-    <div class="config-row" style="padding-bottom:14px;">
-      <div class="field">
-        <label>自淨流速下限 (m/s)</label>
-        <input type="number" id="cfgVmin" value="0.6" step="0.05">
-      </div>
-      <div class="field">
-        <label>流速上限 (m/s)</label>
-        <input type="number" id="cfgVmax" value="3.0" step="0.1">
-      </div>
-    </div>
-  </details>
-
-  <footer class="credit">MANNING · V = (1/n)·R^(2/3)·S^(1/2) · 部分充滿圓管流</footer>
+  <footer class="credit">MANNING · V = (1/n)·R^(2/3)·S^(1/2) · 部分充滿圓管等速均勻流</footer>
 </div>
 
 <script>
-// ---------- Data ----------
-const MATERIALS = [
-  {key:'pvc', label:'PVC／塑膠管', n:0.010},
-  {key:'concrete', label:'混凝土管', n:0.013},
-  {key:'iron', label:'延展鑄鐵／鑄鐵管', n:0.013},
-  {key:'clay', label:'陶管（缸瓦管）', n:0.013},
-  {key:'corrugated', label:'波紋鋼管／HDPE波紋管', n:0.024},
-  {key:'brick', label:'磚砌／水泥砂漿', n:0.015},
-  {key:'steel', label:'鋼管（平滑焊接）', n:0.012},
-  {key:'custom', label:'自訂數值...', n:null},
-];
 
-const TARGETS = [
-  {key:'V', label:'V', lbl:'流速', unit:'m/s'},
-  {key:'Q', label:'Q', lbl:'流量', unit:'L/s'},
-  {key:'S', label:'S', lbl:'坡度', unit:''},
-  {key:'D', label:'D', lbl:'管徑', unit:'mm'},
-  {key:'n', label:'n', lbl:'粗糙係數', unit:''},
-  {key:'r', label:'r', lbl:'充滿度', unit:'%'},
-];
-
-let state = {
-  solveFor: 'V',
-  D: 100,           // mm
-  S_denom: 100,     // slope expressed as 1/S_denom
-  r: 50,            // fill ratio %
-  material: 'pvc',
-  n_custom: 0.010,
-  knownMode: 'V',   // when solving S/D/n/r: which of V or Q is the known target
-  knownV: 0.6,
-  knownQ: 1.9,
-};
-
-// ---------- Geometry helpers ----------
-function theta(r){ // r = h/D in (0,1]
-  const x = Math.max(-1, Math.min(1, 1 - 2*r));
-  return 2*Math.acos(x);
-}
-function shapeF(r){ // R/D
-  if(r<=0) return 0;
-  const th = theta(r);
-  if(th<=0) return 0;
-  return (th - Math.sin(th)) / (4*th);
-}
-function shapeG(r){ // A/D^2
-  if(r<=0) return 0;
-  const th = theta(r);
-  return (th - Math.sin(th)) / 8;
-}
-function currentN(){
-  if(state.material === 'custom') return state.n_custom;
-  return MATERIALS.find(m=>m.key===state.material).n;
-}
-
+/* ══ 共用工具函式 ══════════════════════════════════════════════ */
 function fmt(x, d){
-  if(x===null || x===undefined || !isFinite(x)) return '—';
+  if(x===null || x===undefined || typeof x!=='number' || !isFinite(x)) return '—';
   return x.toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d});
 }
+function num(v, fallback){
+  const n = parseFloat(v);
+  return isFinite(n) ? n : (fallback===undefined ? NaN : fallback);
+}
+function $(id){ return document.getElementById(id); }
 
-// ---------- Build target selector ----------
-const solveSelector = document.getElementById('solveSelector');
+/* 依「取最接近但不小於計算值」的原則挑標準管徑（管徑只能往上取，不能往下） */
+function parseSizes(str){
+  return String(str).split(/[,，\s]+/).map(s=>parseFloat(s)).filter(n=>isFinite(n)&&n>0).sort((a,b)=>a-b);
+}
+function nextStandard(list, value){
+  const arr = Array.isArray(list) ? list : parseSizes(list);
+  if(!arr.length || !isFinite(value)) return null;
+  for(const s of arr){ if(s >= value - 1e-9) return s; }
+  return null;              // 超出表列範圍 → 回 null，讓 UI 明確講「超出對照表」
+}
+
+/* 綁定數字/文字輸入：不重建 DOM，因此不會失焦。
+   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。 */
+function bindInput(el, getter, commit, opts){
+  if(!el) return;
+  opts = opts || {};
+  el.value = getter();
+  el.addEventListener('input', ()=>{
+    commit(el.type==='number' ? num(el.value, NaN) : el.value, el);
+    if(opts.markDirty) el.classList.add('dirty');
+    render();
+  });
+  /* 失焦時才做正規化（把 NaN/空白補回上一個有效值），避免打字打到一半被改掉 */
+  el.addEventListener('blur', ()=>{
+    const v = getter();
+    if(el.type==='number' && (el.value==='' || !isFinite(num(el.value,NaN)))){
+      el.value = (v===null||v===undefined||!isFinite(v)) ? '' : v;
+    }
+  });
+}
+
+/* 檢核列 */
+function addCheck(container, kind, html){
+  const icon = {pass:'✓', fail:'✕', warn:'!', info:'i'}[kind] || 'i';
+  const d = document.createElement('div');
+  d.className = 'check ' + kind;
+  d.innerHTML = '<span class="icon" aria-hidden="true">'+icon+'</span><span class="txt">'+html+'</span>';
+  container.appendChild(d);
+  return d;
+}
+function ck(cond){ return cond ? 'pass' : 'fail'; }
+
+/* ══ 網址狀態同步 ══════════════════════════════════════════════
+   只寫「與預設值不同」的欄位，並且 debounce，
+   避免每個 keystroke 都打一次 history API（舊版會拖慢輸入並塞爆網址）。 */
+let _hashTimer = null;
+function serialize(state, defaults){
+  const diff = {};
+  for(const k of Object.keys(state)){
+    if(JSON.stringify(state[k]) !== JSON.stringify(defaults[k])) diff[k] = state[k];
+  }
+  return Object.keys(diff).length ? btoa(unescape(encodeURIComponent(JSON.stringify(diff)))) : '';
+}
+function writeHash(){
+  clearTimeout(_hashTimer);
+  _hashTimer = setTimeout(()=>{
+    const s = serialize(state, DEFAULTS);
+    history.replaceState(null, '', s ? '#s='+s : location.pathname + location.search);
+  }, 250);
+}
+function readHash(){
+  if(!location.hash || location.hash.length < 3) return;
+  const raw = location.hash.slice(1);
+  const m = raw.match(/^s=(.*)$/);
+  try{
+    if(m){
+      Object.assign(state, JSON.parse(decodeURIComponent(escape(atob(m[1])))));
+    } else {
+      /* 相容舊版連結：#s=<原始 JSON> 或 ?s=... */
+      const p = new URLSearchParams(raw);
+      if(p.has('s')) Object.assign(state, JSON.parse(p.get('s')));
+      if(p.has('rows')) state.rows = JSON.parse(p.get('rows'));
+      if(p.has('idf'))  Object.assign(state.idf, JSON.parse(p.get('idf')));
+      if(p.has('im'))   state.iMode = p.get('im');
+      if(p.has('iman')) state.iManual = num(p.get('iman'), state.iManual);
+    }
+  }catch(e){ console.warn('網址參數解析失敗，改用預設值', e); }
+}
+
+/* ══ 分享 / 列印 / 重設 ═════════════════════════════════════════ */
+function initTopbar(){
+  const btnShare = $('btnShare');
+  if(btnShare) btnShare.onclick = async function(){
+    const s = serialize(state, DEFAULTS);
+    history.replaceState(null, '', s ? '#s='+s : location.pathname + location.search);
+    const url = location.href;
+    try{ await navigator.clipboard.writeText(url); }
+    catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(_){ window.prompt('複製這段網址：', url); }
+      document.body.removeChild(ta);
+    }
+    this.textContent = '已複製連結'; this.classList.add('done');
+    setTimeout(()=>{ this.textContent='複製分享連結'; this.classList.remove('done'); }, 2000);
+  };
+  const btnPrint = $('btnPrint');
+  if(btnPrint) btnPrint.onclick = ()=>{
+    document.querySelectorAll('details').forEach(d=>d.open = true);
+    window.print();
+  };
+  const btnReset = $('btnReset');
+  if(btnReset) btnReset.onclick = ()=>{
+    if(!window.confirm('把所有欄位回復成預設值？目前輸入會被清掉。')) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    location.reload();
+  };
+  const stamp = $('printStamp');
+  if(stamp) stamp.textContent = '產出時間 ' + new Date().toLocaleString('zh-TW', {hour12:false});
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   HYD-01 Manning 圓管部分充滿流互解
+   ══════════════════════════════════════════════════════════════ */
+const MATERIALS = [
+  {key:'pvc',        label:'PVC／塑膠管',              n:0.010},
+  {key:'concrete',   label:'混凝土管',                 n:0.013},
+  {key:'iron',       label:'延展鑄鐵／鑄鐵管',          n:0.013},
+  {key:'clay',       label:'陶管（缸瓦管）',            n:0.013},
+  {key:'corrugated', label:'HDPE 雙壁波紋管／波紋鋼管', n:0.024},
+  {key:'brick',      label:'磚砌／水泥砂漿',            n:0.015},
+  {key:'steel',      label:'鋼管（平滑焊接）',          n:0.012},
+  {key:'custom',     label:'自訂數值…',                n:null},
+];
+const TARGETS = [
+  {key:'V', label:'V', lbl:'流速',     unit:'m/s'},
+  {key:'Q', label:'Q', lbl:'流量',     unit:'L/s'},
+  {key:'S', label:'S', lbl:'坡度',     unit:''},
+  {key:'D', label:'D', lbl:'管徑',     unit:'mm'},
+  {key:'n', label:'n', lbl:'粗糙係數', unit:''},
+  {key:'r', label:'r', lbl:'充滿度',   unit:'%'},
+];
+const USE_PRESETS = {
+  sewer: {vmin:0.6,  vmax:3.0, rmax:70,  label:'污水管（重力）'},
+  storm: {vmin:0.75, vmax:4.0, rmax:100, label:'雨水管／基地排水'},
+};
+
+const CALC = {
+  theta(r){ return 2*Math.acos(Math.max(-1, Math.min(1, 1-2*r))); },
+  shapeF(r){ const th = CALC.theta(r); return (r<=0 || th<=0) ? 0 : (th - Math.sin(th))/(4*th); },  // R/D
+  shapeG(r){ const th = CALC.theta(r); return r<=0 ? 0 : (th - Math.sin(th))/8; },                  // A/D²
+  geom(Dm, r){
+    const f = CALC.shapeF(r), g = CALC.shapeG(r), th = CALC.theta(r);
+    return { R:Dm*f, A:Dm*Dm*g, P: th>0 ? (Dm/2)*th : 0, f, g, th };
+  },
+  V(Dm, r, n, S){
+    const R = CALC.geom(Dm, r).R;
+    return (R>0 && n>0 && S>0) ? (1/n)*Math.pow(R,2/3)*Math.sqrt(S) : 0;
+  },
+  Q(Dm, r, n, S){ return CALC.geom(Dm,r).A * CALC.V(Dm,r,n,S); },
+
+  /* D = (V·n/√S)^1.5 / f　（由 V = (1/n)(D·f)^(2/3)√S 反解） */
+  dFromV(V, n, S, r){ const f = CALC.shapeF(r); return f>0 ? Math.pow(V*n/Math.sqrt(S), 1.5)/f : NaN; },
+  /* Q = (g·f^(2/3)/n)·D^(8/3)·√S */
+  dFromQ(Q, n, S, r){
+    const f = CALC.shapeF(r), g = CALC.shapeG(r), K = g*Math.pow(f,2/3)/n;
+    return K>0 ? Math.pow(Q/(K*Math.sqrt(S)), 3/8) : NaN;
+  },
+  sFromV(V, Dm, r, n){ const R = CALC.geom(Dm,r).R; return R>0 ? Math.pow(V*n/Math.pow(R,2/3), 2) : NaN; },
+  nFromV(V, Dm, r, S){ const R = CALC.geom(Dm,r).R; return V>0 ? Math.pow(R,2/3)*Math.sqrt(S)/V : NaN; },
+
+  /* 充滿度求解：V(r) 在 r≈0.813 有極大、Q(r) 在 r≈0.938 有極大，皆非單調。
+     直接二分法會 (a) 在有兩解時只找到一個，(b) 在兩端同號時誤判無解。
+     因此改為掃描找符號變化區間，再對每個區間各做一次二分。 */
+  solveR(target, wantQ, Dm, n, S){
+    const val = rr => wantQ ? CALC.Q(Dm,rr,n,S) : CALC.V(Dm,rr,n,S);
+    const N = 2000, lo = 0.001, hi = 1.0;
+    const roots = [];
+    let prevR = lo, prevF = val(lo) - target;
+    for(let i=1;i<=N;i++){
+      const rr = lo + (hi-lo)*i/N, f = val(rr) - target;
+      if(f === 0){ roots.push(rr); }
+      else if(prevF !== 0 && (f>0) !== (prevF>0)){
+        let a=prevR, b=rr, fa=prevF;
+        for(let k=0;k<80;k++){
+          const m=(a+b)/2, fm=val(m)-target;
+          if(fm===0){ a=b=m; break; }
+          if((fm>0)===(fa>0)){ a=m; fa=fm; } else { b=m; }
+        }
+        roots.push((a+b)/2);
+      }
+      prevR = rr; prevF = f;
+    }
+    /* 極值（供 UI 說明用） */
+    let peakR = lo, peakV = -Infinity;
+    for(let i=0;i<=N;i++){ const rr = lo+(hi-lo)*i/N, v = val(rr); if(v>peakV){ peakV=v; peakR=rr; } }
+    return { roots, peakR, peakV, atFull: val(1.0) };
+  },
+};
+
+const DEFAULTS = {
+  solveFor:'V', D:100, S_denom:100, r:50,
+  material:'pvc', n_custom:0.010,
+  knownMode:'V', knownV:0.6, knownQ:1.9,
+  vmin:0.6, vmax:3.0, rmax:70, use:'sewer',
+  sizes:'50,65,75,100,125,150,200,250,300,350,400,450,500,600,700,800,900,1000',
+};
+let state = JSON.parse(JSON.stringify(DEFAULTS));
+readHash();
+
+function currentN(){
+  if(state.material === 'custom') return state.n_custom;
+  const m = MATERIALS.find(m=>m.key===state.material);
+  return m ? m.n : 0.013;
+}
+
+/* ══ 求解選擇器 ══ */
+const solveSelector = $('solveSelector');
 TARGETS.forEach(t=>{
   const b = document.createElement('button');
-  b.className = 'seg-btn' + (state.solveFor===t.key ? ' active':'');
+  b.type = 'button'; b.className = 'seg-btn'; b.dataset.key = t.key;
   b.innerHTML = t.label + '<span class="lbl">'+t.lbl+'</span>';
-  b.onclick = ()=>{ state.solveFor = t.key; renderAll(); };
-  b.dataset.key = t.key;
+  b.setAttribute('aria-pressed', 'false');
+  b.onclick = ()=>{ state.solveFor = t.key; buildInputs(); render(); };
   solveSelector.appendChild(b);
 });
 
-// ---------- Render input fields based on solveFor ----------
-function renderInputs(){
+/* ══ 輸入欄位：只在「求解目標改變」時重建，打字時不重建（原版每個 keystroke 都重建 → 失焦） ══ */
+function buildInputs(){
   const target = state.solveFor;
-  const el = document.getElementById('inputFields');
-  el.innerHTML = '';
+  const el = $('inputFields'); el.innerHTML = '';
+  const needKnown = ['S','D','n','r'].includes(target);
 
-  const needsKnownTarget = ['S','D','n','r'].includes(target);
-
-  if(needsKnownTarget){
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `
-      <div class="field">
-        <label>已知的是</label>
-        <div class="toggle-pair">
-          <button id="btnKnownV" class="${state.knownMode==='V'?'active':''}">流速 V (m/s)</button>
-          <button id="btnKnownQ" class="${state.knownMode==='Q'?'active':''}">流量 Q (L/s)</button>
-        </div>
-      </div>
-      <div class="field" id="knownValField">
-        <label id="knownValLabel">${state.knownMode==='V' ? '目標流速 V (m/s)' : '目標流量 Q (L/s)'}</label>
-        <input type="number" id="knownValInput" step="0.01" value="${state.knownMode==='V'?state.knownV:state.knownQ}">
-      </div>
-    `;
-    el.appendChild(wrap);
-    document.getElementById('btnKnownV').onclick = ()=>{ state.knownMode='V'; renderAll(); };
-    document.getElementById('btnKnownQ').onclick = ()=>{ state.knownMode='Q'; renderAll(); };
-    document.getElementById('knownValInput').oninput = (e)=>{
-      const v = parseFloat(e.target.value);
-      if(state.knownMode==='V') state.knownV = v; else state.knownQ = v;
-      computeAndRender();
-    };
+  if(needKnown){
+    const w = document.createElement('div');
+    w.innerHTML =
+      '<div class="field"><label>已知的是</label><div class="toggle-pair">'+
+      '<button type="button" id="btnKnownV">流速 V (m/s)</button>'+
+      '<button type="button" id="btnKnownQ">流量 Q (L/s)</button></div></div>'+
+      '<div class="field"><label for="knownValInput" id="knownValLabel"></label>'+
+      '<input type="number" id="knownValInput" step="0.01" min="0"></div>';
+    el.appendChild(w);
+    $('btnKnownV').onclick = ()=>{ state.knownMode='V'; buildInputs(); render(); };
+    $('btnKnownQ').onclick = ()=>{ state.knownMode='Q'; buildInputs(); render(); };
+    $('knownValLabel').textContent = state.knownMode==='V' ? '目標流速 V (m/s)' : '目標流量 Q (L/s)';
+    bindInput($('knownValInput'),
+      ()=> state.knownMode==='V' ? state.knownV : state.knownQ,
+      v=>{ if(state.knownMode==='V') state.knownV = isFinite(v)?v:0; else state.knownQ = isFinite(v)?v:0; });
   }
 
-  // D field (hidden if solving for D)
   if(target !== 'D'){
     const f = document.createElement('div'); f.className='field';
-    f.innerHTML = `<label>管徑 D (mm)</label>
-      <input type="number" id="inD" step="1" value="${state.D}">
-      <div class="sub-hint">≈ ${(state.D/25.4).toFixed(2)} 吋</div>`;
+    f.innerHTML = '<label for="inD">管徑 D (mm)</label><input type="number" id="inD" step="1" min="1"><div class="sub-hint" id="hintD"></div>';
     el.appendChild(f);
-    setTimeout(()=>{ document.getElementById('inD').oninput = e=>{ state.D=parseFloat(e.target.value)||0; renderInputs(); computeAndRender(); }; },0);
+    bindInput($('inD'), ()=>state.D, v=>{ state.D = isFinite(v)?v:0; });
   }
-
-  // Slope field (hidden if solving for S)
   if(target !== 'S'){
     const f = document.createElement('div'); f.className='field';
-    f.innerHTML = `<label>坡度 &nbsp; 1 / ___</label>
-      <input type="number" id="inS" step="1" value="${state.S_denom}">
-      <div class="sub-hint">= ${(1/state.S_denom).toFixed(5)}（小數）</div>`;
+    f.innerHTML = '<label for="inS">坡度　1 / ___</label><input type="number" id="inS" step="1" min="0.0001"><div class="sub-hint" id="hintS"></div>';
     el.appendChild(f);
-    setTimeout(()=>{ document.getElementById('inS').oninput = e=>{ state.S_denom=parseFloat(e.target.value)||1; renderInputs(); computeAndRender(); }; },0);
+    bindInput($('inS'), ()=>state.S_denom, v=>{ state.S_denom = (isFinite(v)&&v>0)?v:1; });
   }
-
-  // Fill ratio field (hidden if solving for r)
   if(target !== 'r'){
     const f = document.createElement('div'); f.className='field';
-    f.innerHTML = `<label>充滿度 r (%)</label>
-      <input type="number" id="inR" step="1" min="1" max="100" value="${state.r}">
-      <div class="sub-hint">水深 ≈ ${(state.r/100*state.D).toFixed(1)} mm</div>`;
+    f.innerHTML = '<label for="inR">充滿度 r (%)</label><input type="number" id="inR" step="1" min="0.1" max="100"><div class="sub-hint" id="hintR"></div>';
     el.appendChild(f);
-    setTimeout(()=>{ document.getElementById('inR').oninput = e=>{ state.r=parseFloat(e.target.value)||0; renderInputs(); computeAndRender(); }; },0);
+    bindInput($('inR'), ()=>state.r, v=>{ state.r = isFinite(v)?v:0; });
   }
-
-  // n field (hidden if solving for n)
   if(target !== 'n'){
     const f = document.createElement('div'); f.className='field';
-    let opts = MATERIALS.map(m=>`<option value="${m.key}" ${state.material===m.key?'selected':''}>${m.label}${m.n?' (n='+m.n+')':''}</option>`).join('');
-    f.innerHTML = `<label>管材 n</label>
-      <select id="inMat">${opts}</select>
-      <div id="customNWrap" style="margin-top:8px; ${state.material==='custom'?'':'display:none'}">
-        <input type="number" id="inNCustom" step="0.001" value="${state.n_custom}" placeholder="自訂 n 值">
-      </div>`;
+    const opts = MATERIALS.map(m=>'<option value="'+m.key+'"'+(state.material===m.key?' selected':'')+'>'+m.label+(m.n?' (n='+m.n.toFixed(3)+')':'')+'</option>').join('');
+    f.innerHTML = '<label for="inMat">管材 n</label><select id="inMat">'+opts+'</select>'+
+      '<div id="customNWrap" style="margin-top:8px;'+(state.material==='custom'?'':'display:none')+'">'+
+      '<input type="number" id="inNCustom" step="0.001" min="0.005" aria-label="自訂 n 值"></div>';
     el.appendChild(f);
-    setTimeout(()=>{
-      document.getElementById('inMat').onchange = e=>{ state.material=e.target.value; renderInputs(); computeAndRender(); };
-      const cw = document.getElementById('inNCustom');
-      if(cw) cw.oninput = e=>{ state.n_custom=parseFloat(e.target.value)||0.01; computeAndRender(); };
-    },0);
+    $('inMat').onchange = e=>{ state.material = e.target.value; buildInputs(); render(); };
+    if($('inNCustom')) bindInput($('inNCustom'), ()=>state.n_custom, v=>{ state.n_custom = (isFinite(v)&&v>0)?v:0.01; });
   }
 }
 
-// ---------- Core computation ----------
-function computeAll(){
-  const target = state.solveFor;
-  const Dmm = state.D;
-  const Dm = Dmm/1000;
-  const S = 1/state.S_denom;
-  const r = state.r/100;
-  const n = currentN();
+/* ══ 門檻 ══ */
+$('cfgUse').onchange = e=>{
+  state.use = e.target.value;
+  const p = USE_PRESETS[state.use];
+  if(p){ state.vmin=p.vmin; state.vmax=p.vmax; state.rmax=p.rmax;
+    $('cfgVmin').value=p.vmin; $('cfgVmax').value=p.vmax; $('cfgRmax').value=p.rmax; }
+  render();
+};
+[['cfgVmin','vmin'],['cfgVmax','vmax'],['cfgRmax','rmax']].forEach(([id,k])=>
+  bindInput($(id), ()=>state[k], v=>{ state[k] = isFinite(v)?v:0; state.use='none'; $('cfgUse').value='none'; }));
+bindInput($('cfgSizes'), ()=>state.sizes, v=>{ state.sizes = v; });
 
-  let out = { D:Dmm, S:S, r:r*100, n:n, V:null, Q:null, R:null, A:null, P:null, valid:true };
+/* ══ 計算 ══ */
+function compute(){
+  const Dmm = state.D, Dm = Dmm/1000, S = 1/state.S_denom, r = state.r/100, n = currentN();
+  const out = { D:Dmm, S, r:state.r, n, V:null, Q:null, R:null, A:null, P:null, valid:true, note:'', roots:null };
 
-  function geomFromDr(Dm_, r_){
-    const f = shapeF(r_), g = shapeG(r_);
-    const R_ = Dm_*f, A_ = Dm_*Dm_*g;
-    const th = theta(r_);
-    const P_ = th>0 ? (Dm_/2)*th : 0;
-    return {R:R_, A:A_, P:P_, f:f, g:g};
+  if(state.solveFor==='V' || state.solveFor==='Q'){
+    const g = CALC.geom(Dm, r);
+    const V = CALC.V(Dm, r, n, S);
+    Object.assign(out, {R:g.R, A:g.A, P:g.P, V, Q:g.A*V*1000});
   }
-
-  if(target === 'V' || target === 'Q'){
-    const geo = geomFromDr(Dm, r);
-    const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
-    const Q = geo.A*V; // m3/s
-    out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=V; out.Q=Q*1000; // L/s
-  }
-  else if(target === 'S'){
-    const geo = geomFromDr(Dm, r);
-    let Vt = state.knownMode==='V' ? state.knownV : (state.knownQ/1000)/geo.A;
-    const Sreq = geo.R>0 ? Math.pow(Vt*n/Math.pow(geo.R,2/3), 2) : NaN;
-    out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=Vt; out.Q=geo.A*Vt*1000; out.S=Sreq;
+  else if(state.solveFor==='S'){
+    const g = CALC.geom(Dm, r);
+    const Vt = state.knownMode==='V' ? state.knownV : (g.A>0 ? (state.knownQ/1000)/g.A : NaN);
+    const Sreq = CALC.sFromV(Vt, Dm, r, n);
+    Object.assign(out, {R:g.R, A:g.A, P:g.P, V:Vt, Q:g.A*Vt*1000, S:Sreq});
     if(Sreq>0) out.S_denom_calc = 1/Sreq;
+    if(!isFinite(Sreq) || Sreq<=0) out.valid = false;
   }
-  else if(target === 'D'){
-    // solve D from target V or Q, given n,S,r fixed
-    const f = shapeF(r), g = shapeG(r);
-    let Dsolved;
-    if(state.knownMode==='V'){
-      const Vt = state.knownV;
-      // D = (V*n/sqrt(S))^(3/2) / f
-      const base = Vt*n/Math.sqrt(S);
-      Dsolved = f>0 ? Math.pow(base,1.5)/f : NaN;
-    } else {
-      const Qt = state.knownQ/1000; // m3/s
-      const K = (g*Math.pow(f,2/3))/n;
-      Dsolved = K>0 ? Math.pow(Qt/(K*Math.sqrt(S)), 3/8) : NaN;
+  else if(state.solveFor==='D'){
+    const Dsolved = state.knownMode==='V'
+      ? CALC.dFromV(state.knownV, n, S, r)
+      : CALC.dFromQ(state.knownQ/1000, n, S, r);
+    if(!isFinite(Dsolved) || Dsolved<=0){ out.valid=false; }
+    else {
+      const g = CALC.geom(Dsolved, r);
+      const V = CALC.V(Dsolved, r, n, S);
+      Object.assign(out, {D:Dsolved*1000, R:g.R, A:g.A, P:g.P, V, Q:g.A*V*1000});
     }
-    const geo = geomFromDr(Dsolved, r);
-    const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
-    out.D = Dsolved*1000; out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=V; out.Q=geo.A*V*1000;
   }
-  else if(target === 'n'){
-    const geo = geomFromDr(Dm, r);
-    let Vt = state.knownMode==='V' ? state.knownV : (state.knownQ/1000)/geo.A;
-    const nSolved = Vt>0 ? Math.pow(geo.R,2/3)*Math.sqrt(S)/Vt : NaN;
-    out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=Vt; out.Q=geo.A*Vt*1000; out.n=nSolved;
+  else if(state.solveFor==='n'){
+    const g = CALC.geom(Dm, r);
+    const Vt = state.knownMode==='V' ? state.knownV : (g.A>0 ? (state.knownQ/1000)/g.A : NaN);
+    const nS = CALC.nFromV(Vt, Dm, r, S);
+    Object.assign(out, {R:g.R, A:g.A, P:g.P, V:Vt, Q:g.A*Vt*1000, n:nS});
+    if(!isFinite(nS) || nS<=0) out.valid=false;
   }
-  else if(target === 'r'){
-    // bisection to find r such that computed V (or Q) == target
+  else if(state.solveFor==='r'){
     const wantQ = state.knownMode==='Q';
     const targetVal = wantQ ? state.knownQ/1000 : state.knownV;
-    function valAt(rr){
-      const geo = geomFromDr(Dm, rr);
-      const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
-      return wantQ ? geo.A*V : V;
-    }
-    let lo=0.001, hi=1.0, mid=0.5;
-    let flo = valAt(lo)-targetVal, fhi = valAt(hi)-targetVal;
-    if((flo>0 && fhi>0) || (flo<0 && fhi<0)){
-      out.valid=false;
+    const sol = CALC.solveR(targetVal, wantQ, Dm, n, S);
+    out.roots = sol;
+    if(!sol.roots.length){
+      out.valid = false;
+      out.note = (targetVal > sol.peakV)
+        ? '目標值 '+fmt(wantQ?targetVal*1000:targetVal, 3)+(wantQ?' L/s':' m/s')+' 超過此管在此坡度下的最大可能值 '+fmt(wantQ?sol.peakV*1000:sol.peakV, 3)+(wantQ?' L/s':' m/s')+'（發生在 r = '+fmt(sol.peakR*100,1)+'%）。請加大管徑或加陡坡度。'
+        : '在 0.1%~100% 充滿度範圍內找不到解，請確認輸入。';
     } else {
-      for(let i=0;i<50;i++){
-        mid=(lo+hi)/2;
-        const fm = valAt(mid)-targetVal;
-        if(Math.abs(fm)<1e-9) break;
-        if((fm>0)===(flo>0)){ lo=mid; flo=fm; } else { hi=mid; }
-      }
+      const rr = sol.roots[0];
+      const g = CALC.geom(Dm, rr);
+      const V = CALC.V(Dm, rr, n, S);
+      Object.assign(out, {r:rr*100, R:g.R, A:g.A, P:g.P, V, Q:g.A*V*1000});
     }
-    const geo = geomFromDr(Dm, mid);
-    const V = geo.R>0 ? (1/n)*Math.pow(geo.R,2/3)*Math.sqrt(S) : 0;
-    out.r = mid*100; out.R=geo.R; out.A=geo.A; out.P=geo.P; out.V=V; out.Q=geo.A*V*1000;
   }
-
   return out;
 }
 
-// ---------- Render results ----------
-function renderResults(res){
-  const tInfo = TARGETS.find(t=>t.key===state.solveFor);
-  document.getElementById('resultLabel').textContent = tInfo.lbl + ' ' + tInfo.label;
+/* ══ 繪製 ══ */
+function render(){
+  document.querySelectorAll('.seg-btn').forEach(b=>{
+    const on = b.dataset.key===state.solveFor;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on?'true':'false');
+  });
+  if($('hintD')) $('hintD').textContent = '≈ '+(state.D/25.4).toFixed(2)+' 吋';
+  if($('hintS')) $('hintS').textContent = '＝ '+(1/state.S_denom).toFixed(5)+'（小數）＝ '+fmt(100/state.S_denom,3)+' %';
+  if($('hintR')) $('hintR').textContent = '水深 ≈ '+(state.r/100*state.D).toFixed(1)+' mm';
 
-  let mainVal, mainUnit, subText='';
+  const res = compute();
+  const t = TARGETS.find(x=>x.key===state.solveFor);
+  $('resultLabel').textContent = t.lbl + ' ' + t.label;
+  const sizes = parseSizes(state.sizes);
+
+  let mainVal='—', mainUnit='', sub='';
   if(!res.valid){
-    document.getElementById('resultValue').textContent = '無解';
-    document.getElementById('resultUnit').textContent='';
-    document.getElementById('resultSub').textContent = '在充滿度 1–100% 範圍內找不到符合目標的解，請確認輸入數值。';
+    mainVal='無解'; mainUnit=''; sub = res.note || '請檢查輸入數值。';
   } else {
     switch(state.solveFor){
-      case 'V': mainVal=fmt(res.V,3); mainUnit='m/s'; subText=`Q = ${fmt(res.Q,2)} L/s`; break;
-      case 'Q': mainVal=fmt(res.Q,2); mainUnit='L/s'; subText=`= ${fmt(res.Q*60,1)} L/min ・ V = ${fmt(res.V,3)} m/s`; break;
-      case 'S':
-        if(isFinite(res.S) && res.S>0){
-          mainVal='1 / '+fmt(res.S_denom_calc,1); mainUnit=''; subText=`小數 = ${res.S.toFixed(5)}`;
-        } else { mainVal='無解'; mainUnit=''; }
+      case 'V': mainVal=fmt(res.V,3); mainUnit='m/s'; sub='Q = '+fmt(res.Q,2)+' L/s ＝ '+fmt(res.Q*3.6,2)+' m³/hr'; break;
+      case 'Q': mainVal=fmt(res.Q,2); mainUnit='L/s'; sub='＝ '+fmt(res.Q*3.6,2)+' m³/hr ＝ '+fmt(res.Q*86.4,1)+' m³/日 ・ V = '+fmt(res.V,3)+' m/s'; break;
+      case 'S': mainVal='1 / '+fmt(res.S_denom_calc,1); sub='小數 = '+res.S.toFixed(6)+' ＝ '+fmt(res.S*100,4)+' %'; break;
+      case 'D': {
+        const std = nextStandard(sizes, res.D);
+        mainVal=fmt(res.D,1); mainUnit='mm';
+        sub='≈ '+(res.D/25.4).toFixed(2)+' 吋　→　建議採用標準管徑 '+(std!==null?fmt(std,0)+' mm':'超出對照表');
         break;
-      case 'D': mainVal=fmt(res.D,0); mainUnit='mm'; subText=`≈ ${(res.D/25.4).toFixed(2)} 吋`; break;
-      case 'n': mainVal=res.n?res.n.toFixed(4):'—'; mainUnit=''; subText='對照材質表找最接近的管材'; break;
-      case 'r': mainVal=fmt(res.r,1); mainUnit='%'; subText=`水深 ≈ ${fmt(res.r/100*res.D,1)} mm`; break;
+      }
+      case 'n': mainVal=res.n.toFixed(4); sub='對照下方材質表找最接近的管材'; break;
+      case 'r': mainVal=fmt(res.r,1); mainUnit='%'; sub='水深 ≈ '+fmt(res.r/100*res.D,1)+' mm'+(res.roots && res.roots.roots.length>1 ? '（此目標值有 '+res.roots.roots.length+' 個解，見下方說明）':''); break;
     }
-    document.getElementById('resultValue').textContent = mainVal;
-    document.getElementById('resultUnit').textContent = mainUnit;
-    document.getElementById('resultSub').textContent = subText;
   }
+  $('resultValue').textContent = mainVal;
+  $('resultUnit').textContent = mainUnit;
+  $('resultSub').textContent = sub;
 
-  // derived grid
-  const dg = document.getElementById('derivedGrid');
-  dg.innerHTML = '';
-  const items = [
-    {k:'R 水力半徑', v: res.R!=null ? fmt(res.R,4)+' m' : '—'},
-    {k:'A 截面積', v: res.A!=null ? fmt(res.A,5)+' m²' : '—'},
-    {k:'P 濕周', v: res.P!=null ? fmt(res.P,4)+' m' : '—'},
-  ];
-  items.forEach(it=>{
-    const d = document.createElement('div'); d.className='derived-item';
-    d.innerHTML = `<div class="k">${it.k}</div><div class="v">${it.v}</div>`;
-    dg.appendChild(d);
-  });
+  /* 衍生量 */
+  $('derivedGrid').innerHTML =
+    '<div class="derived-item"><div class="k">R 水力半徑</div><div class="v">'+(res.R!=null?fmt(res.R,4)+' m':'—')+'</div></div>'+
+    '<div class="derived-item"><div class="k">A 通水斷面積</div><div class="v">'+(res.A!=null?fmt(res.A,5)+' m²':'—')+'</div></div>'+
+    '<div class="derived-item"><div class="k">P 濕周</div><div class="v">'+(res.P!=null?fmt(res.P,4)+' m':'—')+'</div></div>';
 
-  // pipe visual
+  /* 滿管特性 */
+  const Dm_ = (state.solveFor==='D' && res.valid ? res.D : state.D)/1000;
+  const n_ = res.n>0 ? res.n : currentN();
+  const S_ = state.solveFor==='S' && res.valid ? res.S : 1/state.S_denom;
+  const Vfull = CALC.V(Dm_, 1, n_, S_), Qfull = CALC.Q(Dm_, 1, n_, S_)*1000;
+  const solQ = CALC.solveR(Infinity, true, Dm_, n_, S_);
+  const solV = CALC.solveR(Infinity, false, Dm_, n_, S_);
+  $('fullGrid').innerHTML =
+    '<div class="derived-item"><div class="k">滿管流速 V<sub>full</sub></div><div class="v">'+fmt(Vfull,3)+' m/s</div></div>'+
+    '<div class="derived-item"><div class="k">滿管流量 Q<sub>full</sub></div><div class="v">'+fmt(Qfull,2)+' L/s</div></div>'+
+    '<div class="derived-item"><div class="k">V<sub>max</sub>（r='+fmt(solV.peakR*100,1)+'%）</div><div class="v">'+fmt(solV.peakV,3)+' m/s（×'+fmt(Vfull>0?solV.peakV/Vfull:NaN,3)+'）</div></div>'+
+    '<div class="derived-item"><div class="k">Q<sub>max</sub>（r='+fmt(solQ.peakR*100,1)+'%）</div><div class="v">'+fmt(solQ.peakV*1000,2)+' L/s（×'+fmt(Qfull>0?solQ.peakV*1000/Qfull:NaN,3)+'）</div></div>';
+
+  /* 管內水位圖 */
   const rFrac = res.valid ? (state.solveFor==='r' ? res.r/100 : state.r/100) : 0;
-  const R_svg = 52, cy=65;
-  const fillH = Math.max(0, Math.min(1,rFrac)) * (2*R_svg);
-  const rect = document.getElementById('waterRect');
-  rect.setAttribute('y', (cy+R_svg) - fillH);
-  rect.setAttribute('height', fillH);
-  const waterY = (cy+R_svg) - fillH;
-  document.getElementById('waterLine').setAttribute('y1', waterY);
-  document.getElementById('waterLine').setAttribute('y2', waterY);
-  document.getElementById('pipeLabel').textContent = '充滿度 ' + (res.valid ? fmt(rFrac*100,0) : '—') + '%';
+  const R_svg=54, cy=68, fillH = Math.max(0, Math.min(1,rFrac))*(2*R_svg), yTop = (cy+R_svg)-fillH;
+  const rect = $('waterRect'); rect.setAttribute('y', yTop); rect.setAttribute('height', fillH);
+  $('waterLine').setAttribute('y1', yTop); $('waterLine').setAttribute('y2', yTop);
+  $('pipeLabel').textContent = '充滿度 ' + (res.valid ? fmt(rFrac*100,1) : '—') + '%';
 
-  // checks
-  const checks = document.getElementById('checks');
-  checks.innerHTML = '';
+  /* 檢核 */
+  const c = $('checks'); c.innerHTML='';
   if(res.valid){
-    const vmin = parseFloat(document.getElementById('cfgVmin').value)||0.6;
-    const vmax = parseFloat(document.getElementById('cfgVmax').value)||3.0;
-    const V = res.V;
-
-    // self-cleansing check
-    if(V!=null){
-      const passMin = V>=vmin, passMax = V<=vmax;
-      addCheck(checks, passMin, `自淨流速下限 ${vmin} m/s：<b>${fmt(V,3)} m/s</b> ${passMin?'符合':'不足，長期恐沉積結垢'}`);
-      addCheck(checks, passMax, `流速上限 ${vmax} m/s：${passMax?'未超過':'超過，恐沖蝕／噪音／虹吸風險'}`);
+    const V = res.V, Dmm = res.D;
+    if(V!=null && isFinite(V)){
+      addCheck(c, ck(V>=state.vmin), '自淨流速下限 '+fmt(state.vmin,2)+' m/s：<b>'+fmt(V,3)+' m/s</b> '+(V>=state.vmin?'符合':'不足 — 長期會沉積結垢，管路有效斷面逐年縮小'));
+      addCheck(c, ck(V<=state.vmax), '流速上限 '+fmt(state.vmax,2)+' m/s：'+(V<=state.vmax?'未超過':'<b>超過</b> — 管壁沖蝕、噪音，並可能在跌水處產生虹吸破壞存水彎'));
     }
-    // code min slope check (only meaningful once D & S both known)
-    const Dmm = res.D;
-    const Smin = Dmm>75 ? 1/100 : 1/50;
-    const Sval = res.S;
-    if(isFinite(Sval) && Sval>0){
-      const passSlope = Sval >= Smin - 1e-9;
-      addCheck(checks, passSlope, `法規最低坡度（管徑${Dmm>75?'>75mm→1/100':'≤75mm→1/50'}）：目前 1/${fmt(1/Sval,0)} ${passSlope?'合規':'不足，違反規範'}`);
+    if(isFinite(rFrac)){
+      const rPct = rFrac*100;
+      addCheck(c, ck(rPct<=state.rmax), '充滿度 '+fmt(rPct,1)+'% vs 建議上限 '+fmt(state.rmax,0)+'%：'+(rPct<=state.rmax?'符合':'<b>超過</b> — 重力污水管一般設計在 50~70%D，保留斷面給通氣、尖峰與未來增量；法規未明訂統一值，此為實務門檻'));
     }
+    if(isFinite(res.S) && res.S>0 && isFinite(Dmm)){
+      const smin = Dmm>75 ? 1/100 : 1/50;
+      const pass = res.S >= smin - 1e-12;
+      addCheck(c, ck(pass), '§4.2.3 最小坡度（管徑 '+fmt(Dmm,0)+' mm '+(Dmm>75?'>75 → 1/100':'≤75 → 1/50')+'）：目前 1/'+fmt(1/res.S,1)+' '+(pass?'合規':'<b>不足，不符條文</b>'));
+      if(!pass){
+        const t41 = Dmm>=200 ? null : (Dmm>=150 ? 1/200 : (Dmm>=100 ? 1/150 : (Dmm>=75 ? 1/100 : 1/50)));
+        if(t41 && res.S >= t41 - 1e-12) addCheck(c,'warn','不過表 4-1 對此管徑列的最小坡度是 1/'+fmt(1/t41,0)+'，目前坡度<b>符合表 4-1 但不符 §4.2.3 條文</b>。兩者有落差，若要採用較緩坡度請在計算書內載明依據並取得審查同意。');
+        if(Dmm>=200) addCheck(c,'info','§4.2.6：管徑 ≥200 mm 且最小流速 ≥0.6 m/s 者，坡度可較平緩。目前流速 '+fmt(V,3)+' m/s'+(V>=0.6?'，符合此放寬條件。':'，未達 0.6 m/s，無法適用放寬。'));
+      }
+      if(Dmm < 30) addCheck(c,'fail','管徑 '+fmt(Dmm,1)+' mm 小於規範規定的排水管最小管徑 30 mm（§4.1.2）。');
+    }
+    if(state.solveFor==='r' && res.roots && res.roots.roots.length>1){
+      const rs = res.roots.roots.map(x=>fmt(x*100,1)+'%').join('、');
+      addCheck(c,'warn','此目標值有 <b>'+res.roots.roots.length+' 個解</b>：'+rs+'。因為圓管的 '+(state.knownMode==='Q'?'流量在 r≈93.8%':'流速在 r≈81.3%')+' 達到極大後回落，同一數值在極大值兩側各有一解。上方顯示的是較小者（正常設計解）；較大者屬接近滿管的不穩定區，實務上不採用。');
+    }
+    if(rFrac > 0.94) addCheck(c,'warn','充滿度 >94% 已進入 Q(r) 曲線的下降段，此區間水位微幅變動就會造成流況不穩（時而滿管時而明渠），設計上應避免。');
+    if(rFrac > 0 && rFrac < 0.1) addCheck(c,'warn','充滿度 <10% 時 Manning 公式精度明顯下降（濕周相對過大、水膜效應顯著），此區間的計算結果僅供參考。');
+    if(state.solveFor==='D'){
+      const std = nextStandard(sizes, res.D);
+      if(std!==null){
+        const g2 = CALC.geom(std/1000, rFrac), V2 = CALC.V(std/1000, rFrac, n_, S_);
+        addCheck(c,'info','採用標準管徑 '+fmt(std,0)+' mm 後（同充滿度、同坡度）：V = '+fmt(V2,3)+' m/s、Q = '+fmt(g2.A*V2*1000,2)+' L/s。管徑放大後流速會上升、實際充滿度會下降，建議回頭用「解 r」模式以標準管徑與目標流量再核一次。');
+      } else {
+        addCheck(c,'fail','計算管徑 '+fmt(res.D,1)+' mm 超出標準管徑對照表，請擴充對照表或改採箱涵／多管並列。');
+      }
+    }
+  } else {
+    addCheck(c,'fail', res.note || '目前條件無解。');
   }
-}
-function addCheck(container, pass, html){
-  const d = document.createElement('div');
-  d.className = 'check ' + (pass?'pass':'fail');
-  d.innerHTML = `<span class="icon">${pass?'✓':'✕'}</span><span class="txt">${html}</span>`;
-  container.appendChild(d);
-}
 
-// ---------- Orchestration ----------
-function computeAndRender(){
-  const res = computeAll();
-  renderResults(res);
-}
-function renderAll(){
-  document.querySelectorAll('.seg-btn').forEach(b=>{
-    b.classList.toggle('active', b.dataset.key===state.solveFor);
-  });
-  renderInputs();
-  computeAndRender();
-}
+  /* Summary — 求解目標排第一，其餘三格不重複顯示同一個量 */
+  const tiles = [{k: t.lbl+' '+t.label, v: mainVal, u: mainUnit}];
+  if(state.solveFor!=='V') tiles.push({k:'流速 V',   v: res.V!=null?fmt(res.V,2):'—', u:'m/s'});
+  if(state.solveFor!=='Q') tiles.push({k:'流量 Q',   v: res.Q!=null?fmt(res.Q,1):'—', u:'L/s'});
+  if(state.solveFor!=='D') tiles.push({k:'管徑 D',   v: fmt(res.D,0), u:'mm'});
+  if(state.solveFor!=='r') tiles.push({k:'充滿度 r', v: fmt(rFrac*100,0), u:'%'});
+  tiles.push({k:'Q / Q<sub>full</sub>', v: fmt(Qfull>0&&res.Q!=null?res.Q/Qfull:NaN,2), u:''});
+  $('summary').innerHTML = tiles.slice(0,4).map(x=>
+    '<div class="sum-item"><div class="k">'+x.k+'</div><div class="v">'+x.v+'<span>'+x.u+'</span></div></div>').join('');
 
-document.getElementById('cfgVmin').oninput = computeAndRender;
-document.getElementById('cfgVmax').oninput = computeAndRender;
-
-// ---------- 網址狀態同步 ----------
-// 把目前的輸入條件寫進網址 hash，這樣把連結貼給同事時，
-// 對方打開看到的就是同一組條件與同一個答案。
-const HASH_KEYS = {
-  solve: ['solveFor', String],
-  D:     ['D', Number],
-  S:     ['S_denom', Number],
-  r:     ['r', Number],
-  mat:   ['material', String],
-  nc:    ['n_custom', Number],
-  km:    ['knownMode', String],
-  kv:    ['knownV', Number],
-  kq:    ['knownQ', Number],
-};
-
-function writeHash(){
-  const p = new URLSearchParams();
-  for(const [key, [field]] of Object.entries(HASH_KEYS)){
-    const v = state[field];
-    if(v !== null && v !== undefined && !Number.isNaN(v)) p.set(key, v);
-  }
-  p.set('vmin', document.getElementById('cfgVmin').value);
-  p.set('vmax', document.getElementById('cfgVmax').value);
-  history.replaceState(null, '', '#' + p.toString());
-}
-
-function readHash(){
-  if(!location.hash || location.hash.length < 2) return;
-  const p = new URLSearchParams(location.hash.slice(1));
-  for(const [key, [field, cast]] of Object.entries(HASH_KEYS)){
-    if(!p.has(key)) continue;
-    const raw = p.get(key);
-    const val = cast(raw);
-    if(cast === Number && !isFinite(val)) continue;
-    state[field] = val;
-  }
-  if(p.has('vmin')) document.getElementById('cfgVmin').value = p.get('vmin');
-  if(p.has('vmax')) document.getElementById('cfgVmax').value = p.get('vmax');
-}
-
-// 每次重算後同步網址
-const _computeAndRender = computeAndRender;
-computeAndRender = function(){ _computeAndRender(); writeHash(); };
-
-// ---------- 分享與列印 ----------
-document.getElementById('btnShare').onclick = async function(){
   writeHash();
-  const btn = this;
-  const url = location.href;
-  try{
-    await navigator.clipboard.writeText(url);
-  }catch(e){
-    // 非 HTTPS 或瀏覽器不支援剪貼簿時的備援
-    const ta = document.createElement('textarea');
-    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(_){ prompt('複製這段網址：', url); }
-    document.body.removeChild(ta);
-  }
-  btn.textContent = '已複製連結';
-  btn.classList.add('done');
-  setTimeout(() => { btn.textContent = '複製分享連結'; btn.classList.remove('done'); }, 2000);
-};
+}
 
-document.getElementById('btnPrint').onclick = () => window.print();
+function boot(){
+  $('cfgVmin').value = state.vmin; $('cfgVmax').value = state.vmax;
+  $('cfgRmax').value = state.rmax; $('cfgUse').value = state.use;
+  $('cfgSizes').value = state.sizes;
+  buildInputs(); initTopbar(); render();
+}
+boot();
 
-readHash();
-renderAll();
+/* 供 tests/verify.js 取用 */
+window.CALC = CALC; window.state = state; window.DEFAULTS = DEFAULTS;
+
 </script>
 </body>
 </html>
