@@ -181,7 +181,7 @@
   <!-- STEP 0 -->
   <div class="step">
     <div class="step-head"><span class="step-num">◇</span><h2>系統分流架構</h2></div>
-    <div class="step-sub">「污水」「廢水」「雨水」在台灣是三個不同的東西，先確認本案採哪一種架構，後面的化糞池規模與管路配置才有意義。</div>
+    <div class="step-sub">台灣的法規把三者分開：<b>污水</b>指廁所等含糞尿的生活排水，<b>廢水</b>指製程與設備排出、不含糞尿者，<b>雨水</b>則自成一系統。先確認本案採分流或合流，後面的化糞池規模與管路配置才有意義。</div>
     <div class="toggle-pair">
       <button id="sysCombined" type="button">污廢合流（污水＋雜排水同管，一起進處理設施）</button>
       <button id="sysSeparate" type="button">污廢分流（糞便污水進化糞池，雜排水另管）</button>
@@ -206,7 +206,7 @@
   <!-- STEP 2 -->
   <div class="step">
     <div class="step-head"><span class="step-num">②</span><h2>製程／設備廢水量與排放時間分布</h2></div>
-    <div class="step-sub">冷卻水塔排放(blowdown)、空調凝結水、實驗室廢水、發電機油槽區廢水等。<b>排放時間分布比日總量更決定泵浦選型</b> — 同樣 108.5 M³/日，連續 24 小時排放只要 4.5 m³/h 的泵，但若每天集中 1 小時排完就需要 108 m³/h。</div>
+    <div class="step-sub">冷卻水塔排放水（blowdown，為避免鹽類濃縮而定期排掉的循環水）、空調凝結水、實驗室廢水、發電機油槽區廢水等。<b>排放時間分布比日總量更決定泵浦選型</b> — 同樣 108.5 M³/日，連續 24 小時排放只要 4.5 m³/h 的泵，但若每天集中 1 小時排完就需要 108 m³/h。</div>
     <div class="grid3">
       <div class="field"><label for="processWaste">製程廢水量 (M³/日)</label><input type="number" id="processWaste" step="0.1" min="0"></div>
       <div class="field"><label for="procMode">排放模式</label>
@@ -234,7 +234,7 @@
   <!-- STEP 4 -->
   <div class="step">
     <div class="step-head"><span class="step-num">④</span><h2>尖峰排放流量</h2></div>
-    <div class="step-sub">泵浦、管徑、處理設施水力負荷都要用<b>尖峰流量</b>，不是日平均。生活污水有明顯人為作息尖峰（尖峰係數 2~4），製程廢水則看排放模式。原版工具直接用「日量 ÷ 時數」得到平均值，會嚴重低估。</div>
+    <div class="step-sub">泵浦、管徑、處理設施水力負荷都要用<b>尖峰流量</b>，不是日平均。生活污水有明顯的人為作息尖峰（尖峰係數 2~4），製程廢水則取決於排放模式。用「日量 ÷ 時數」得到的是平均值，會低估泵浦與管徑的需求。</div>
     <div class="formula-line">Q<sub>尖峰</sub> = (生活污水/日 ÷ 24) × 尖峰係數 ＋ 製程廢水尖峰流量　　｜　Harmon: PF = 1 + 14 ÷ (4 + √(人口/1000))</div>
     <div class="grid3">
       <div class="field"><label for="pfMode">生活污水尖峰係數</label>
@@ -285,7 +285,7 @@
   <!-- STEP 6 -->
   <div class="step">
     <div class="step-head"><span class="step-num">⑥</span><h2>集水坑抽水泵浦與坑體容積</h2></div>
-    <div class="step-sub">低於放流點高程的區域無法重力排放，需設集水坑＋沉水式污水泵浦。泵浦流量要能吃下<b>尖峰入流</b>；坑體有效容積則由<b>最小啟閉週期</b>決定 — 容積太小會讓馬達頻繁啟停過熱燒毀，這是實務上最常見的失效模式。</div>
+    <div class="step-sub">低於放流點高程的區域無法重力排放，需設集水坑＋沉水式污水泵浦。泵浦流量要能承受<b>尖峰入流</b>；坑體有效容積則由<b>最小啟閉週期</b>（泵浦兩次啟動之間至少要間隔多久）決定 — 容積太小會讓馬達頻繁啟停、過熱燒毀，這是實務上最常見的失效模式。</div>
     <div class="formula-line">Q<sub>泵</sub> ≥ Q<sub>尖峰入流</sub>　｜　V<sub>有效</sub> = Q<sub>泵</sub> × t<sub>週期</sub> ÷ 4　｜　H = 靜揚程 + 摩擦損失　｜　P = (1000·Q·H) ÷ (75·E) × 裕餘</div>
     <div class="grid4">
       <div class="field"><label for="pitQmode">本坑尖峰入流</label>
@@ -312,7 +312,7 @@
   <!-- STEP 7 -->
   <div class="step">
     <div class="step-head"><span class="step-num">⑦</span><h2>器具排水單位 ΣDFU 與管徑對照</h2></div>
-    <div class="step-sub">各衛生器具依排水特性賦予「器具排水單位」，加總後查對照表決定管徑。<b>下表的容許 DFU 值是國際慣用量級（IPC/UPC 系）</b>，台灣送審須改用當地建築主管機關認可之對照表 — 欄位可直接改成你查到的法定值。</div>
+    <div class="step-sub">器具排水單位（DFU）是一套把馬桶、洗手台等不同器具的排水量換算成同一種計數單位的方法，加總後查對照表即可決定管徑。<b>下表的容許 DFU 值是國際慣用量級（IPC/UPC 系）</b>，台灣送審須改用當地建築主管機關認可之對照表 — 欄位可直接改成你查到的法定值。</div>
     <div class="table-scroll">
       <table class="rows-table">
         <caption class="sr-only">衛生器具數量與排水單位</caption>
@@ -367,7 +367,7 @@
       <b>⚠ 已知陷阱（本工具已處理）：</b><br>
       　1. <b>「日污水量 ÷ 抽水時數」不是泵浦流量。</b>那是平均值。泵浦必須吃得下尖峰入流，否則坑體溢流。<br>
       　2. <b>製程廢水的排放時間分布決定一切。</b>本案 blowdown 108.5 M³/日，若連續排放僅需 4.5 m³/h，但若集中 1 小時排完就需要約 108 m³/h — 這正是圖說上放流採樣井選用 Q=100 m³/h 泵浦的量級。單看日總量會差 20 倍以上。<br>
-      　3. <b>放流點揚程必須進入計算。</b>原版把它做成輸入欄位卻完全沒有使用，馬力算不出來。<br>
+      　3. <b>放流點揚程必須進入計算。</b>靜揚程加上摩擦損失與速度水頭才是總揚程，馬力由總揚程決定。<br>
       　4. <b>化糞池「容積」與處理設施「處理水量」是兩件事</b>，單位分別是 M³ 與 M³/日，不可混用。<br>
       <b>範例數值來源：</b>龍慶 27MW 案 MIC-VB-DS-DWG-0001 污排水系統設計圖說 C 版、MIC-VB-DS-DWG-0002 污水納管送審圖說 B 版、MIC-VB-WS-DWG-0003 用水平衡圖（生活 7.9＋blowdown 108.5＝納管 116.4 噸/日）。<br>
       <b>不在本工具範圍：</b>通氣管系統設計（每一存水彎均須有對應通氣，是排水系統能否正常運作的關鍵，須另行核算）、油脂截留器、放流水質處理與採樣設施、廢水分流後的個別處理需求。
@@ -402,21 +402,33 @@ function nextStandard(list, value){
 }
 
 /* 綁定數字/文字輸入：不重建 DOM，因此不會失焦。
-   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。 */
+   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。
+
+   數字欄位在「空白或還沒打完」（parseFloat 得不到有限值）時**完全不寫 state**，
+   只讓輸入框維持使用者正在打的字。這樣把欄位清空不會把 state 換成 fallback
+   值 —— 舊寫法在清空坡度欄位時會把 S_denom 直接變成 1，計算結果瞬間跳掉，
+   失焦後又把那個 1 填回欄位，使用者原本的數值就永久消失了。 */
 function bindInput(el, getter, commit, opts){
   if(!el) return;
   opts = opts || {};
   el.value = getter();
   el.addEventListener('input', ()=>{
-    commit(el.type==='number' ? num(el.value, NaN) : el.value, el);
+    if(el.type === 'number'){
+      const raw = num(el.value, NaN);
+      if(!isFinite(raw)) return;        // 空白／半成品：保留 state，等 blur 再正規化
+      commit(raw, el);
+    } else {
+      commit(el.value, el);
+    }
     if(opts.markDirty) el.classList.add('dirty');
     render();
   });
-  /* 失焦時才做正規化（把 NaN/空白補回上一個有效值），避免打字打到一半被改掉 */
+  /* 失焦時才做正規化：把空白補回 state 裡現存的有效值 */
   el.addEventListener('blur', ()=>{
     const v = getter();
     if(el.type==='number' && (el.value==='' || !isFinite(num(el.value,NaN)))){
       el.value = (v===null||v===undefined||!isFinite(v)) ? '' : v;
+      render();
     }
   });
 }
@@ -738,7 +750,7 @@ function render(){
   const Vpit = CALC.pitVolume(state.pumpQ, state.cycleMin);
   $('outPitPump').innerHTML = fmt(PS,2)+' PS<span>＝'+fmt(PS*0.7355,2)+' kW　｜　V<sub>坑</sub> ≥ '+fmt(Vpit,2)+' m³</span>';
   const pc = $('pitChecks'); pc.innerHTML='';
-  addCheck(pc, ck(state.pumpQ >= inflow), '泵浦流量 '+fmt(state.pumpQ,1)+' m³/h '+(state.pumpQ>=inflow?'足以吃下':'<b>小於</b>')+'尖峰入流 '+fmt(inflow,2)+' m³/h。'+(state.pumpQ<inflow?' 坑體會持續累積並溢流，必須加大泵浦或增加運轉台數。':' 餘裕 '+fmt(state.pumpQ-inflow,2)+' m³/h。'));
+  addCheck(pc, ck(state.pumpQ >= inflow), '泵浦流量 '+fmt(state.pumpQ,1)+' m³/h '+(state.pumpQ>=inflow?'足以承受':'<b>小於</b>')+'尖峰入流 '+fmt(inflow,2)+' m³/h。'+(state.pumpQ<inflow?' 坑體會持續累積並溢流，必須加大泵浦或增加運轉台數。':' 餘裕 '+fmt(state.pumpQ-inflow,2)+' m³/h。'));
   addCheck(pc,'info','集水坑<b>有效容積</b>（啟停水位之間）至少 '+fmt(Vpit,2)+' m³，對應每小時最多 '+fmt(60/state.cycleMin,0)+' 次啟動。容積不足會讓馬達頻繁啟停過熱 — 這是污水泵最常見的燒毀原因。此容積之外還要另留死水深（保護葉輪）與高水位緊急蓄容。');
   if(isFinite(V)){
     const okV = V>=0.6 && V<=3.0;

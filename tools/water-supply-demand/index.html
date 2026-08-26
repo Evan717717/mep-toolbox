@@ -177,7 +177,7 @@
   <!-- MODE -->
   <div class="step">
     <div class="step-head"><span class="step-num">◇</span><h2>計算模式 — 特殊製程用水要不要乘調整係數？</h2></div>
-    <div class="step-sub">這是本計算最容易被審查追問、也最容易兩份文件對不起來的一個開關。台水內線審查表把「空調用水量」放在樓地板面積表的一列，因此小計會連同製程用水一起乘上 0.9 調整係數；但從工程觀點，由負載計算書算出來的製程補水量本來就不該再被折減。兩種做法差約 10%，請明確選定並在計算書上註明。</div>
+    <div class="step-sub">台水內線審查表把「空調用水量」放在樓地板面積表的一列，因此小計會連同製程用水一起乘上 0.9 調整係數；但從工程觀點，由負載計算書算出來的製程補水量不應再被折減。兩種做法的結果差約 10%，請明確選定一種並在計算書上註明依據。</div>
     <div class="toggle-pair">
       <button id="mSubmit" type="button">送審重現：製程用水併入面積表，一起 ×調整係數</button>
       <button id="mStrict" type="button">工程保守：製程用水獨立，不折減</button>
@@ -305,7 +305,7 @@
   <!-- STEP 7 -->
   <div class="step">
     <div class="step-head"><span class="step-num">⑦</span><h2>揚水總揚程 H</h2></div>
-    <div class="step-sub">下列四項與台水審查表逐格對應。<b>兩個必須知道的坑</b>已在下方檢核列標示：(a) Ht 的 D 要代公尺不是公厘；(b) 台水表格的 Ht 用 V 的一次方而非 V²，且 Hd 已含 Hs 而 H 又再加一次 Hs。工具預設完全重現送審表，但同時把工程正確值算給你對照。</div>
+    <div class="step-sub">下列四項與台水審查表逐格對應。<b>有兩處容易出錯，已在下方檢核列標示</b>：(a) Ht 式中的管徑 D 要以公尺代入，不是公厘，代錯會少算 1000 倍；(b) 台水表格的 Ht 用 V 的一次方而非 V²，且 Hd 已含 Hs、H 又再加一次 Hs。工具預設重現送審表的算法，同時把工程正解算出來並列對照。</div>
     <div class="formula-line">H = Hs + Hd + Ht + Hw　｜　Hs = 0.5·V²/2g　｜　Hd = 樓高 + Hs　｜　Ht = f·(L/D)·V^m/2g　｜　Hw = (Hs+Hd+Ht) × 水錘係數</div>
     <div class="toggle-pair">
       <button id="htOfficial" type="button">送審重現式：Ht = 0.02·(L/D)·V/2g</button>
@@ -403,21 +403,33 @@ function nextStandard(list, value){
 }
 
 /* 綁定數字/文字輸入：不重建 DOM，因此不會失焦。
-   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。 */
+   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。
+
+   數字欄位在「空白或還沒打完」（parseFloat 得不到有限值）時**完全不寫 state**，
+   只讓輸入框維持使用者正在打的字。這樣把欄位清空不會把 state 換成 fallback
+   值 —— 舊寫法在清空坡度欄位時會把 S_denom 直接變成 1，計算結果瞬間跳掉，
+   失焦後又把那個 1 填回欄位，使用者原本的數值就永久消失了。 */
 function bindInput(el, getter, commit, opts){
   if(!el) return;
   opts = opts || {};
   el.value = getter();
   el.addEventListener('input', ()=>{
-    commit(el.type==='number' ? num(el.value, NaN) : el.value, el);
+    if(el.type === 'number'){
+      const raw = num(el.value, NaN);
+      if(!isFinite(raw)) return;        // 空白／半成品：保留 state，等 blur 再正規化
+      commit(raw, el);
+    } else {
+      commit(el.value, el);
+    }
     if(opts.markDirty) el.classList.add('dirty');
     render();
   });
-  /* 失焦時才做正規化（把 NaN/空白補回上一個有效值），避免打字打到一半被改掉 */
+  /* 失焦時才做正規化：把空白補回 state 裡現存的有效值 */
   el.addEventListener('blur', ()=>{
     const v = getter();
     if(el.type==='number' && (el.value==='' || !isFinite(num(el.value,NaN)))){
       el.value = (v===null||v===undefined||!isFinite(v)) ? '' : v;
+      render();
     }
   });
 }
@@ -579,7 +591,7 @@ const CALC = {
   /* ── 揚程 ──
      htMode 'official'：完全重現台水表格（V 一次方、f 固定 0.02）
      htMode 'darcy'   ：f·(L/D)·V²/2g，另可加局部損失 K·V²/2g
-     兩者的 D 都以公尺代入 —— 這是原版最大的量綱錯誤所在 */
+     兩者的 D 都必須以公尺代入（代公厘會少算 1000 倍） */
   head(p){
     const Dm = p.Dmm/1000;
     const vh = p.V*p.V/(2*G);                       // 速度水頭
