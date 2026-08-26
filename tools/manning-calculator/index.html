@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>圓管重力流水理計算機（Manning） — MEP 工具箱</title>
+<title>重力流水理計算機（Manning） — MEP 工具箱</title>
 <meta name="color-scheme" content="dark light">
 <style>
   :root{
@@ -163,6 +163,21 @@
   .derived-item .k{ font-size:10px; color:var(--text-dimmer); margin-bottom:3px; }
   .derived-item .v{ font-family:var(--mono); font-size:13.5px; color:var(--text); }
   .pipe-wrap{ display:flex; justify-content:center; margin:6px 0 12px; }
+
+  /* 斷面形狀選擇器 */
+  .shape-bar{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .shape-btn{ background:var(--panel); border:1px solid var(--border-real); color:var(--text-dim);
+    border-radius:12px; padding:12px 8px; cursor:pointer; font-family:var(--sans);
+    display:flex; flex-direction:column; align-items:center; gap:2px; transition:all .15s; }
+  .shape-btn .gl{ font-family:var(--mono); font-size:22px; line-height:1.1; }
+  .shape-btn .nm{ font-size:13px; font-weight:700; }
+  .shape-btn .sb{ font-size:10.5px; color:var(--text-dimmer); }
+  .shape-btn.active{ background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+  .shape-btn.active .sb{ color:var(--accent); }
+  .shape-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  label.chk{ display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; }
+  label.chk input{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -181,16 +196,17 @@
   <div class="print-only" style="font-size:10px;color:#555;margin-bottom:8px;" id="printStamp"></div>
 
   <div class="eyebrow">MEP // 排水・給水工具 ・ HYD-01</div>
-  <h1>圓管重力流水理計算機（Manning）</h1>
-  <p class="subtitle">選擇要求解的變數，其餘當作已知條件輸入 — 流速 V、流量 Q、坡度 S、管徑 D、粗糙係數 n、充滿度 r 六者互解，內建自淨流速、流速上限、最大充滿度與法規最低坡度檢核。</p>
+  <h1>重力流水理計算機（Manning）</h1>
+  <p class="subtitle">算圓管、矩形溝、梯形溝在重力（不加壓）下能通多少水。先選斷面形狀，再選一個要求的變數，其餘當已知條件填入 — 流速 V、流量 Q、坡度 S、斷面尺寸、粗糙係數 n、水深六者互解。</p>
 
   <div class="notice info">
     <span aria-hidden="true">ℹ️</span>
-    <span>本工具解的是<b>等速均勻流（uniform flow）</b>下的圓管部分充滿流。實際管網有跌水、彎道、匯流、回水（backwater）與非均勻流段，逐段設計仍須考慮這些效應。壓力流（滿管加壓）不適用 Manning，請改用 Hazen–Williams 或 Darcy–Weisbach。</span>
+    <span>三種斷面用的是<b>同一條 Manning 公式</b>，差別只在通水面積 A 與濕周 P 的算法。本工具解的是<b>等速均勻流</b>（水深沿程不變的穩定流況）。實際管渠有跌水、彎道、匯流與回水，逐段設計仍須另行檢討。<b>滿管加壓的壓力流不適用 Manning</b>，請改用 Hazen–Williams 或 Darcy–Weisbach。</span>
   </div>
 
   <div class="summary" id="summary"></div>
 
+  <div class="shape-bar" id="shapeSelector" role="group" aria-label="選擇斷面形狀"></div>
 
   <div class="segmented" id="solveSelector" role="group" aria-label="選擇要求解的變數"></div>
 
@@ -209,18 +225,17 @@
       </div>
       <div class="derived-grid" id="derivedGrid"></div>
       <div class="pipe-wrap">
-        <svg id="pipeSvg" width="160" height="140" viewBox="0 0 160 140" role="img" aria-labelledby="pipeLabel">
+        <svg id="sectionSvg" width="190" height="150" viewBox="0 0 190 150" role="img" aria-labelledby="sectionLabel">
           <defs>
             <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#5eead4" stop-opacity="0.85"/>
               <stop offset="100%" stop-color="#1a8f82" stop-opacity="0.95"/>
             </linearGradient>
-            <clipPath id="waterClip"><rect id="waterRect" x="0" y="140" width="160" height="0"/></clipPath>
+            <clipPath id="waterClip"><rect id="waterRect" x="0" y="150" width="190" height="0"/></clipPath>
           </defs>
-          <circle cx="80" cy="68" r="54" fill="none" stroke="#2a4360" stroke-width="2.5"/>
-          <circle cx="80" cy="68" r="54" fill="url(#waterGrad)" clip-path="url(#waterClip)"/>
-          <line id="waterLine" x1="26" y1="68" x2="134" y2="68" stroke="#5eead4" stroke-width="1.3" stroke-dasharray="3,3" opacity="0.9"/>
-          <text id="pipeLabel" x="80" y="132" text-anchor="middle" fill="#8ea0b5" font-size="10.5" font-family="ui-monospace,monospace">充滿度 —</text>
+          <g id="sectionShape"></g>
+          <line id="waterLine" x1="0" y1="0" x2="0" y2="0" stroke="#5eead4" stroke-width="1.3" stroke-dasharray="3,3" opacity="0.9"/>
+          <text id="sectionLabel" x="95" y="143" text-anchor="middle" fill="#8ea0b5" font-size="10.5" font-family="ui-monospace,monospace">—</text>
         </svg>
       </div>
       <div class="checks" id="checks"></div>
@@ -228,34 +243,61 @@
   </div>
 
   <div class="card">
-    <h2>滿管特性與充滿度曲線</h2>
-    <div class="step-sub">圓管部分充滿流有一個反直覺的性質：<b>流速在 r ≈ 81% 時最大、流量在 r ≈ 94% 時最大，都不是滿管</b>。也就是說同一個目標流量在 r &lt; 94% 的範圍內可能有<b>兩個</b>解，而流量略高於滿管值時仍然有解。這是原版工具用二分法求充滿度時會誤判「無解」的原因。</div>
-    <div class="derived-grid" id="fullGrid" style="grid-template-columns:repeat(4,1fr);"></div>
+    <h2 id="capsHead">斷面容量特性</h2>
+    <div class="step-sub" id="capsSub"></div>
+    <div class="derived-grid" id="capsGrid" style="grid-template-columns:repeat(4,1fr);"></div>
   </div>
 
   <div class="card">
     <h2>檢核門檻設定</h2>
     <div class="grid4">
-      <div class="field"><label for="cfgVmin">自淨流速下限 (m/s)</label><input type="number" id="cfgVmin" step="0.05" min="0"></div>
-      <div class="field"><label for="cfgVmax">流速上限 (m/s)</label><input type="number" id="cfgVmax" step="0.1" min="0"></div>
-      <div class="field"><label for="cfgRmax">建議最大充滿度 (%)</label><input type="number" id="cfgRmax" step="5" min="10" max="100"></div>
-      <div class="field"><label for="cfgUse">用途</label>
+      <div class="field"><label for="cfgVmin">自淨流速下限 (m/s)</label><input type="number" id="cfgVmin" step="0.05" min="0"><div class="sub-hint">低於此值泥砂會沉積</div></div>
+      <div class="field"><label for="cfgVmax">流速上限 (m/s)</label><input type="number" id="cfgVmax" step="0.1" min="0"><div class="sub-hint">高於此值管壁／溝壁會沖蝕。建築排水與水保渠道的容許值差很多，見下方說明</div></div>
+      <div class="field"><label for="cfgRmax">建議最大充滿度 (%)</label><input type="number" id="cfgRmax" step="5" min="10" max="100"><div class="sub-hint">水深佔斷面總深的比例上限</div></div>
+      <div class="field"><label for="cfgUse">用途預設組</label>
         <select id="cfgUse">
           <option value="sewer">污水管（重力）</option>
           <option value="storm">雨水管／基地排水</option>
+          <option value="channel">混凝土明溝／箱涵</option>
+          <option value="earth">土溝／草溝</option>
           <option value="none">不套用預設門檻</option>
         </select>
       </div>
     </div>
-    <div class="field" style="margin-top:12px;"><label for="cfgSizes">標準管徑對照表 (mm，逗號分隔)</label><input type="text" id="cfgSizes"></div>
+    <div class="grid2" style="margin-top:12px;">
+      <div class="field" id="fbWrap"><label for="cfgFb">最小出水高 (mm)</label><input type="number" id="cfgFb" step="10" min="0"><div class="sub-hint">出水高＝溝深 − 水深，是溝頂預留給波浪與突發水量的緩衝。水保技術規範 §86 訂為 200 mm</div></div>
+      <div class="field"><label for="cfgSizes" id="cfgSizesLabel">標準尺寸對照表 (mm，逗號分隔)</label><input type="text" id="cfgSizes"></div>
+    </div>
   </div>
 
-
   <details class="refs">
-    <summary>參考來源、n 值表與坡度規定</summary>
+    <summary>幾何公式、粗糙係數 n 值表與規範出處</summary>
+
+    <div class="src-list" style="padding-bottom:4px;">
+      <b>共用公式</b>　V = (1/n)·R^(2/3)·S^(1/2)　、　Q = A·V　、　R = A / P<br>
+      V 流速 (m/s)｜n 粗糙係數（無因次）｜R 水力半徑 (m)｜S 坡度（無因次，例 1/200 = 0.005）｜A 通水斷面積 (m²)｜P 濕周＝水接觸到管壁／溝壁的周長 (m)｜Q 流量 (m³/s)。<br>
+      三種斷面只有 A 與 P 的算法不同，V 與 Q 那一段完全一樣。
+    </div>
+
     <table class="ref-table">
-      <caption class="sr-only">Manning 粗糙係數表</caption>
-      <thead><tr><th>材質</th><th>設計值 n</th><th>常見範圍</th></tr></thead>
+      <caption class="sr-only">各斷面的通水面積與濕周公式</caption>
+      <thead><tr><th>斷面</th><th>通水面積 A</th><th>濕周 P</th><th>水面寬 T</th></tr></thead>
+      <tbody>
+        <tr><td>圓形（水深 h、管徑 D、r = h/D）<br>θ = 2·arccos(1 − 2r)，單位 rad</td><td class="n-val">D²(θ − sinθ) / 8</td><td class="n-val">D·θ / 2</td><td class="n-val">D·sin(θ/2)</td></tr>
+        <tr><td>矩形明溝（底寬 b、水深 y）</td><td class="n-val">b · y</td><td class="n-val">b + 2y</td><td class="n-val">b</td></tr>
+        <tr><td>矩形箱涵，滿水且有頂版時</td><td class="n-val">b · H</td><td class="n-val">2(b + H)</td><td class="n-val">0</td></tr>
+        <tr><td>梯形（底寬 b、水深 y、邊坡 z:1）</td><td class="n-val">(b + z·y)·y</td><td class="n-val">b + 2y√(1 + z²)</td><td class="n-val">b + 2z·y</td></tr>
+      </tbody>
+    </table>
+    <div class="src-list" style="padding-bottom:10px;">
+      <b>為什麼明溝的水面不算濕周</b>：濕周只計「水與固體邊界接觸」的長度，因為摩擦阻力來自固體壁面。明溝上方是空氣，不產生壁面摩擦，所以 T 不計入 P。這是明溝與滿管最主要的幾何差別。<br>
+      <b>圓管的特例</b>：半滿（r = 50%）與滿管（r = 100%）的水力半徑都剛好等於 D/4，這是圓形幾何的巧合，不能推廣到其他斷面。<br>
+      <b>福祿數</b> Fr = V / √(g·A/T)，g = 9.81 m/s²，T 為水面寬。Fr &lt; 1 為亞臨界流（水深大、流速慢，一般排水設計的正常狀態）；Fr &gt; 1 為超臨界流；Fr ≈ 1 附近水面會劇烈起伏，設計上應避開。本工具採用的不穩定區間 0.86 &lt; Fr &lt; 1.13 出自 USACE <i>EM 1110-2-1601 Hydraulic Design of Flood Control Channels</i> (1991, Change 1: 1994) §2-2d(1)(b)：「Tranquil flow: d &gt; 1.1d<sub>c</sub> or F &lt; 0.86；Rapid flow: d &lt; 0.9d<sub>c</sub> or F &gt; 1.13」。有頂版且滿水時無自由水面，Fr 不適用。
+    </div>
+
+    <table class="ref-table">
+      <caption class="sr-only">圓管粗糙係數表</caption>
+      <thead><tr><th>管材（圓管）</th><th>設計值 n</th><th>常見範圍</th></tr></thead>
       <tbody>
         <tr><td>PVC／塑膠管</td><td class="n-val">0.010</td><td>0.009–0.011</td></tr>
         <tr><td>混凝土管</td><td class="n-val">0.013</td><td>0.012–0.016</td></tr>
@@ -266,8 +308,26 @@
         <tr><td>鋼管（平滑焊接）</td><td class="n-val">0.012</td><td>0.011–0.015</td></tr>
       </tbody>
     </table>
+
     <table class="ref-table">
-      <caption class="sr-only">排水橫管坡度規定</caption>
+      <caption class="sr-only">明溝粗糙係數表</caption>
+      <thead><tr><th>溝壁材質（矩形／梯形溝）</th><th>設計值 n</th><th>常見範圍</th></tr></thead>
+      <tbody>
+        <tr><td>混凝土　鏝平（trowel finish）</td><td class="n-val">0.013</td><td>0.011–0.015</td></tr>
+        <tr><td>混凝土　浮平／一般粉光（float finish）</td><td class="n-val">0.015</td><td>0.013–0.016</td></tr>
+        <tr><td>混凝土　未修飾、粗模板面</td><td class="n-val">0.017</td><td>0.015–0.020</td></tr>
+        <tr><td>水泥砂漿粉刷</td><td class="n-val">0.013</td><td>0.011–0.015</td></tr>
+        <tr><td>磚砌（水泥砂漿）</td><td class="n-val">0.015</td><td>0.012–0.017</td></tr>
+        <tr><td>漿砌塊石</td><td class="n-val">0.025</td><td>0.017–0.030</td></tr>
+        <tr><td>乾砌塊石／拋石</td><td class="n-val">0.032</td><td>0.023–0.035</td></tr>
+        <tr><td>土溝　順直、斷面均勻、清潔</td><td class="n-val">0.018</td><td>0.016–0.020</td></tr>
+        <tr><td>土溝　風化後或帶短草</td><td class="n-val">0.025</td><td>0.022–0.030</td></tr>
+        <tr><td>草溝　密草</td><td class="n-val">0.035</td><td>0.030–0.080</td></tr>
+      </tbody>
+    </table>
+
+    <table class="ref-table">
+      <caption class="sr-only">建築排水橫管坡度規定</caption>
       <thead><tr><th>管徑 (mm)</th><th>§4.2.3 條文最小坡度</th><th>表 4-1 最小坡度</th></tr></thead>
       <tbody>
         <tr><td>30 ~ 75</td><td class="n-val">1/50</td><td class="n-val">1/50 ~ 1/100</td></tr>
@@ -276,19 +336,21 @@
         <tr><td>200 以上</td><td class="n-val">1/100</td><td class="n-val">§4.2.6：流速 ≥0.6 m/s 時坡度可較平緩</td></tr>
       </tbody>
     </table>
+
     <div class="src-list">
-      <b>幾何式</b>（θ 為水面對應圓心角，rad；r = h/D）：θ = 2·arccos(1−2r)；A = D²(θ−sinθ)/8；P = Dθ/2；R = A/P = D(θ−sinθ)/(4θ)。<br>
-      <b>Manning</b>：V = (1/n)·R^(2/3)·S^(1/2)，Q = A·V。適用等速均勻流之明渠／重力管，SI 單位制。<br>
-      <b>滿管特性</b>：V<sub>max</sub>/V<sub>full</sub> ≈ 1.140 於 r ≈ 0.813；Q<sub>max</sub>/Q<sub>full</sub> ≈ 1.076 於 r ≈ 0.938。工具會以掃描法找出全部根，不再用單調性假設的二分法。<br>
-      <b>n 值來源</b>：Chow, V.T. (1959) <i>Open-Channel Hydraulics</i>；FHWA HEC-22 (2009) <i>Urban Drainage Design Manual</i> 3rd Ed.；Uni-Bell PVC Pipe Association 技術報告。<br>
-      <b>自淨流速</b>：T.R. Camp, "Minimum velocities for sewers," <i>Journal of Boston Society of Civil Engineers</i> (1942/1946)。各國規範採用 0.6–0.9 m/s；雨水管因挾砂量較高常取較嚴的 0.75–0.9 m/s。<br>
-      <b>坡度與最小管徑</b>：《建築物給水排水設備設計技術規範》§4.2.3（管徑 ≤75 mm 坡度不得小於 1/50，>75 mm 不得小於 1/100）、表 4-1、§4.2.6（≥200 mm 且流速 ≥0.6 m/s 得放寬）、§4.1.2（排水管最小管徑 30 mm）。條文與表 4-1 之間存在落差，工具同時顯示兩者。<br>
-      <b>最大充滿度</b>：法規未明訂統一值。實務上污水管常設計在 0.5D~0.7D（保留通氣斷面、容納尖峰與未來增量），雨水管可容許接近滿管。此門檻工具做成可調欄位而非寫死。<br>
-      <b>不適用情形</b>：壓力流（滿管加壓）、超臨界流的水躍段、極小充滿度（r &lt; 約 10% 時 Manning 精度下降）、非圓形斷面。
+      <b>圓管的容量特性</b>：部分充滿的圓管，流速在 r ≈ 81.3% 達到最大（V<sub>max</sub>/V<sub>full</sub> ≈ 1.140），流量在 r ≈ 93.8% 達到最大（Q<sub>max</sub>/Q<sub>full</sub> ≈ 1.076），都不是滿管。也就是同一個目標流量在 r &lt; 94% 內可能對應<b>兩個</b>水深。本工具以掃描法找出全部的解，不假設單調。矩形與梯形明溝的 Q(y) 是單調遞增，不會有這個現象。<br>
+      <b>n 值來源</b>：Chow, V.T. (1959) <i>Open-Channel Hydraulics</i>, Table 5-6（明溝各材質）；FHWA HEC-22 <i>Urban Drainage Design Manual</i>, 4th Ed. (2024, FHWA-HIF-24-006)（都市排水管渠；2009 年的 3rd Ed. 已被取代）；Uni-Bell PVC Pipe Association 技術報告（塑膠管）。n 值受施工品質與使用年限影響很大，關鍵案件應取範圍上緣做保守設計。台灣水保案件另可參《水土保持手冊》，其對混凝土內面工列的 n 值範圍為 0.015~0.025。<br>
+      <b>自淨流速</b>：概念源自 T.R. Camp 於 1940 年代對下水道自清流速的研究（"Design of sewers to facilitate flow", <i>Sewage Works Journal</i>）。實務門檻依各國規範採 0.6–0.9 m/s；雨水管與明溝挾砂量較高，常取較嚴的 0.75–0.9 m/s。<br>
+      <b>流速上限差異很大，選錯門檻會誤判</b>：建築排水管慣用 3.0 m/s（污水）～4.0 m/s（雨水）；但《水土保持手冊》對混凝土內面工渠道列的最大容許流速達 4.57~6.10 m/s、最小流速不低於 0.8 m/s。兩者相差近一倍，請依本案實際適用的規範選定，不要沿用預設值。<br>
+      <b>坡度與最小管徑</b>（僅適用建築物排水圓管）：《建築物給水排水設備設計技術規範》§4.2.3（管徑 ≤75 mm 坡度不得小於 1/50，&gt;75 mm 不得小於 1/100）、表 4-1、§4.2.6（≥200 mm 且流速 ≥0.6 m/s 得放寬）、§4.1.2（排水管最小管徑 30 mm）。條文與表 4-1 之間的數值有落差，工具同時顯示兩者，不替使用者選邊。<br>
+      <b>最大充滿度</b>：法規未明訂統一值。重力污水管實務上設計在 0.5D~0.7D，保留斷面給通氣、尖峰與未來增量；雨水管可接近滿管。此門檻做成可調欄位而非寫死。<br>
+      <b>出水高（freeboard）</b>：明溝溝頂到水面的預留高度，用來吸收波浪、雜物壅塞與流量估算誤差。《水土保持技術規範》§86 訂為<b>設計水深之 25%，且不得小於 20 公分</b>，本工具即以此為預設判準（兩者取大），數值可調。其他系統另有規定：灌溉渠道的出水高一般更大，建築物內排水則不適用本項。<br>
+      <b>邊坡 z</b>：梯形溝側壁的水平：垂直比。z = 0 退化成矩形；混凝土襯砌常用 z = 0~0.5，土溝依土質取 1.0~2.0 以維持邊坡穩定。邊坡穩定屬大地工程範疇，本工具只算水理。<br>
+      <b>不適用情形</b>：壓力流（滿管加壓）、水躍段、圓管在 r &lt; 約 10% 的極小充滿度（濕周相對過大，Manning 精度下降）、以及斷面沿程劇烈變化的渠段。
     </div>
   </details>
 
-  <footer class="credit">MANNING · V = (1/n)·R^(2/3)·S^(1/2) · 部分充滿圓管等速均勻流</footer>
+  <footer class="credit">MANNING · V = (1/n)·R^(2/3)·S^(1/2) · 圓管／矩形溝／梯形溝 等速均勻流</footer>
 </div>
 
 <script>
@@ -304,7 +366,7 @@ function num(v, fallback){
 }
 function $(id){ return document.getElementById(id); }
 
-/* 依「取最接近但不小於計算值」的原則挑標準管徑（管徑只能往上取，不能往下） */
+/* 依「取最接近但不小於計算值」的原則挑標準尺寸（尺寸只能往上取，不能往下） */
 function parseSizes(str){
   return String(str).split(/[,，\s]+/).map(s=>parseFloat(s)).filter(n=>isFinite(n)&&n>0).sort((a,b)=>a-b);
 }
@@ -316,21 +378,33 @@ function nextStandard(list, value){
 }
 
 /* 綁定數字/文字輸入：不重建 DOM，因此不會失焦。
-   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。 */
+   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。
+
+   數字欄位在「空白或還沒打完」（parseFloat 得不到有限值）時**完全不寫 state**，
+   只讓輸入框維持使用者正在打的字。這樣把欄位清空不會把 state 換成 fallback
+   值 —— 舊寫法在清空坡度欄位時會把 S_denom 直接變成 1，計算結果瞬間跳掉，
+   失焦後又把那個 1 填回欄位，使用者原本的數值就永久消失了。 */
 function bindInput(el, getter, commit, opts){
   if(!el) return;
   opts = opts || {};
   el.value = getter();
   el.addEventListener('input', ()=>{
-    commit(el.type==='number' ? num(el.value, NaN) : el.value, el);
+    if(el.type === 'number'){
+      const raw = num(el.value, NaN);
+      if(!isFinite(raw)) return;        // 空白／半成品：保留 state，等 blur 再正規化
+      commit(raw, el);
+    } else {
+      commit(el.value, el);
+    }
     if(opts.markDirty) el.classList.add('dirty');
     render();
   });
-  /* 失焦時才做正規化（把 NaN/空白補回上一個有效值），避免打字打到一半被改掉 */
+  /* 失焦時才做正規化：把空白補回 state 裡現存的有效值 */
   el.addEventListener('blur', ()=>{
     const v = getter();
     if(el.type==='number' && (el.value==='' || !isFinite(num(el.value,NaN)))){
       el.value = (v===null||v===undefined||!isFinite(v)) ? '' : v;
+      render();
     }
   });
 }
@@ -348,7 +422,7 @@ function ck(cond){ return cond ? 'pass' : 'fail'; }
 
 /* ══ 網址狀態同步 ══════════════════════════════════════════════
    只寫「與預設值不同」的欄位，並且 debounce，
-   避免每個 keystroke 都打一次 history API（舊版會拖慢輸入並塞爆網址）。 */
+   避免每個 keystroke 都打一次 history API。 */
 let _hashTimer = null;
 function serialize(state, defaults){
   const diff = {};
@@ -372,13 +446,9 @@ function readHash(){
     if(m){
       Object.assign(state, JSON.parse(decodeURIComponent(escape(atob(m[1])))));
     } else {
-      /* 相容舊版連結：#s=<原始 JSON> 或 ?s=... */
+      /* 相容更早的連結格式：?s=<原始 JSON> */
       const p = new URLSearchParams(raw);
       if(p.has('s')) Object.assign(state, JSON.parse(p.get('s')));
-      if(p.has('rows')) state.rows = JSON.parse(p.get('rows'));
-      if(p.has('idf'))  Object.assign(state.idf, JSON.parse(p.get('idf')));
-      if(p.has('im'))   state.iMode = p.get('im');
-      if(p.has('iman')) state.iManual = num(p.get('iman'), state.iManual);
     }
   }catch(e){ console.warn('網址參數解析失敗，改用預設值', e); }
 }
@@ -418,9 +488,18 @@ function initTopbar(){
 
 
 /* ══════════════════════════════════════════════════════════════
-   HYD-01 Manning 圓管部分充滿流互解
+   HYD-01　Manning 重力流互解（圓管／矩形溝／梯形溝）
+
+   設計上把「斷面幾何」與「Manning 求解」徹底分開：
+     SECTIONS[shape].geom(dims, r) → { A, P, R, T, y }
+   其中 r 一律是「水深 ÷ 斷面最大深度」的比值（0~1），
+   所以三種斷面共用同一組 V / Q / S / n / 水深 / 尺寸 求解器。
+   要再加新斷面（馬蹄形、U 形…）只需要多寫一個 geom。
    ══════════════════════════════════════════════════════════════ */
-const MATERIALS = [
+
+const G = 9.81;                       // 重力加速度 m/s²
+
+const PIPE_MATERIALS = [
   {key:'pvc',        label:'PVC／塑膠管',              n:0.010},
   {key:'concrete',   label:'混凝土管',                 n:0.013},
   {key:'iron',       label:'延展鑄鐵／鑄鐵管',          n:0.013},
@@ -430,49 +509,135 @@ const MATERIALS = [
   {key:'steel',      label:'鋼管（平滑焊接）',          n:0.012},
   {key:'custom',     label:'自訂數值…',                n:null},
 ];
-const TARGETS = [
-  {key:'V', label:'V', lbl:'流速',     unit:'m/s'},
-  {key:'Q', label:'Q', lbl:'流量',     unit:'L/s'},
-  {key:'S', label:'S', lbl:'坡度',     unit:''},
-  {key:'D', label:'D', lbl:'管徑',     unit:'mm'},
-  {key:'n', label:'n', lbl:'粗糙係數', unit:''},
-  {key:'r', label:'r', lbl:'充滿度',   unit:'%'},
+const CHANNEL_MATERIALS = [
+  {key:'conc_trowel', label:'混凝土　鏝平',             n:0.013},
+  {key:'conc_float',  label:'混凝土　浮平／一般粉光',    n:0.015},
+  {key:'conc_rough',  label:'混凝土　未修飾、粗模板面',  n:0.017},
+  {key:'mortar',      label:'水泥砂漿粉刷',             n:0.013},
+  {key:'brick_ch',    label:'磚砌（水泥砂漿）',          n:0.015},
+  {key:'rubble',      label:'漿砌塊石',                 n:0.025},
+  {key:'dryrubble',   label:'乾砌塊石／拋石',           n:0.032},
+  {key:'earth',       label:'土溝　順直、清潔',          n:0.018},
+  {key:'earth_weath', label:'土溝　風化後或帶短草',      n:0.025},
+  {key:'grass',       label:'草溝　密草',               n:0.035},
+  {key:'custom',      label:'自訂數值…',               n:null},
 ];
-const USE_PRESETS = {
-  sewer: {vmin:0.6,  vmax:3.0, rmax:70,  label:'污水管（重力）'},
-  storm: {vmin:0.75, vmax:4.0, rmax:100, label:'雨水管／基地排水'},
+
+/* ── 斷面幾何 ──────────────────────────────────────────────────
+   geom(dims, r)：dims 尺寸一律 mm，內部換算成公尺；r = 水深 / 最大深度。
+   回傳 A 通水面積 (m²)、P 濕周 (m)、R 水力半徑 (m)、T 水面寬 (m)、y 水深 (m)。 */
+const SECTIONS = {
+  circle: {
+    key:'circle', glyph:'○', label:'圓形', sub:'管',
+    sizeKey:'D', sizeSym:'D', sizeName:'管徑', sizeUnit:'mm',
+    depthSym:'r', depthName:'充滿度', depthUnit:'%',
+    isPipe:true,
+    dims:[{k:'D', label:'管徑 D (mm)', step:1, min:1}],
+    maxDepthMm(d){ return d.D; },
+    geom(d, r){
+      const D = d.D/1000;
+      const rr = Math.max(0, Math.min(1, r));
+      if(!(D>0) || rr<=0) return {A:0, P:0, R:0, T:0, y:0, th:0};
+      const th = 2*Math.acos(Math.max(-1, Math.min(1, 1-2*rr)));
+      const A = D*D*(th - Math.sin(th))/8;
+      const P = (D/2)*th;
+      const T = D*Math.sin(th/2);
+      return {A, P, R: P>0 ? A/P : 0, T, y: rr*D, th};
+    },
+  },
+  rect: {
+    key:'rect', glyph:'▭', label:'矩形', sub:'明溝／箱涵',
+    sizeKey:'b', sizeSym:'b', sizeName:'溝底淨寬', sizeUnit:'mm',
+    depthSym:'y', depthName:'水深', depthUnit:'mm',
+    isPipe:false,
+    dims:[{k:'b', label:'溝底淨寬 b (mm)', step:10, min:1},
+          {k:'H', label:'溝深（內淨深）H (mm)', step:10, min:1}],
+    maxDepthMm(d){ return d.H; },
+    /* 有頂版時 geom 在 r=1 是不連續的（濕周多了頂版與另一側壁）。
+       水深求解只在「自由水面」這一段有意義，所以掃描上界收在 1 之前，
+       滿管流（已無自由水面、實際會轉為壓力流）另外單獨呈現。 */
+    solveHi(d){ return d.capped ? 1 - 1e-9 : 1; },
+    geom(d, r){
+      const b = d.b/1000, H = d.H/1000;
+      const rr = Math.max(0, Math.min(1, r));
+      if(!(b>0) || !(H>0) || rr<=0) return {A:0, P:0, R:0, T:0, y:0};
+      /* 有頂版且水面頂到頂版時，頂版也算濕周（此時已無自由水面） */
+      if(d.capped && rr >= 1 - 1e-12){
+        const A = b*H, P = 2*(b+H);
+        return {A, P, R:A/P, T:0, y:H};
+      }
+      const y = rr*H, A = b*y, P = b + 2*y;
+      return {A, P, R: P>0 ? A/P : 0, T: b, y};
+    },
+  },
+  trap: {
+    key:'trap', glyph:'⏢', label:'梯形', sub:'邊溝／土溝',
+    sizeKey:'b', sizeSym:'b', sizeName:'溝底淨寬', sizeUnit:'mm',
+    depthSym:'y', depthName:'水深', depthUnit:'mm',
+    isPipe:false,
+    dims:[{k:'b', label:'溝底淨寬 b (mm)', step:10, min:0},
+          {k:'H', label:'溝深（內淨深）H (mm)', step:10, min:1},
+          {k:'z', label:'邊坡 z（水平:垂直 ＝ z:1）', step:0.1, min:0}],
+    maxDepthMm(d){ return d.H; },
+    geom(d, r){
+      const b = d.b/1000, H = d.H/1000, z = Math.max(0, d.z);
+      const rr = Math.max(0, Math.min(1, r));
+      if(!(H>0) || rr<=0 || (b<=0 && z<=0)) return {A:0, P:0, R:0, T:0, y:0};
+      const y = rr*H;
+      const A = (b + z*y)*y;
+      const P = b + 2*y*Math.sqrt(1 + z*z);
+      const T = b + 2*z*y;
+      return {A, P, R: P>0 ? A/P : 0, T, y};
+    },
+  },
 };
 
+const TARGETS = [
+  {key:'V',     label:'V', lbl:'流速',     unit:'m/s'},
+  {key:'Q',     label:'Q', lbl:'流量',     unit:'L/s'},
+  {key:'S',     label:'S', lbl:'坡度',     unit:''},
+  {key:'size',  label:'D', lbl:'尺寸',     unit:'mm'},   // label 依斷面覆寫
+  {key:'n',     label:'n', lbl:'粗糙係數', unit:''},
+  {key:'depth', label:'r', lbl:'水深',     unit:'%'},    // label 依斷面覆寫
+];
+
+const USE_PRESETS = {
+  sewer:   {vmin:0.6,  vmax:3.0, rmax:70,  fb:0,   label:'污水管（重力）'},
+  storm:   {vmin:0.75, vmax:4.0, rmax:100, fb:0,   label:'雨水管／基地排水'},
+  channel: {vmin:0.8,  vmax:4.57, rmax:80, fb:200, label:'混凝土明溝／箱涵'},
+  earth:   {vmin:0.6,  vmax:1.5,  rmax:80, fb:200, label:'土溝／草溝'},
+};
+
+/* ── 計算層 ────────────────────────────────────────────────── */
 const CALC = {
-  theta(r){ return 2*Math.acos(Math.max(-1, Math.min(1, 1-2*r))); },
-  shapeF(r){ const th = CALC.theta(r); return (r<=0 || th<=0) ? 0 : (th - Math.sin(th))/(4*th); },  // R/D
-  shapeG(r){ const th = CALC.theta(r); return r<=0 ? 0 : (th - Math.sin(th))/8; },                  // A/D²
-  geom(Dm, r){
-    const f = CALC.shapeF(r), g = CALC.shapeG(r), th = CALC.theta(r);
-    return { R:Dm*f, A:Dm*Dm*g, P: th>0 ? (Dm/2)*th : 0, f, g, th };
-  },
-  V(Dm, r, n, S){
-    const R = CALC.geom(Dm, r).R;
-    return (R>0 && n>0 && S>0) ? (1/n)*Math.pow(R,2/3)*Math.sqrt(S) : 0;
-  },
-  Q(Dm, r, n, S){ return CALC.geom(Dm,r).A * CALC.V(Dm,r,n,S); },
+  sections: SECTIONS,
 
-  /* D = (V·n/√S)^1.5 / f　（由 V = (1/n)(D·f)^(2/3)√S 反解） */
-  dFromV(V, n, S, r){ const f = CALC.shapeF(r); return f>0 ? Math.pow(V*n/Math.sqrt(S), 1.5)/f : NaN; },
-  /* Q = (g·f^(2/3)/n)·D^(8/3)·√S */
-  dFromQ(Q, n, S, r){
-    const f = CALC.shapeF(r), g = CALC.shapeG(r), K = g*Math.pow(f,2/3)/n;
-    return K>0 ? Math.pow(Q/(K*Math.sqrt(S)), 3/8) : NaN;
+  /* 通用：任意斷面 */
+  geomOf(shape, dims, r){ return SECTIONS[shape].geom(dims, r); },
+  Vof(shape, dims, r, n, S){
+    const R = SECTIONS[shape].geom(dims, r).R;
+    return (R>0 && n>0 && S>0) ? (1/n)*Math.pow(R, 2/3)*Math.sqrt(S) : 0;
   },
-  sFromV(V, Dm, r, n){ const R = CALC.geom(Dm,r).R; return R>0 ? Math.pow(V*n/Math.pow(R,2/3), 2) : NaN; },
-  nFromV(V, Dm, r, S){ const R = CALC.geom(Dm,r).R; return V>0 ? Math.pow(R,2/3)*Math.sqrt(S)/V : NaN; },
+  Qof(shape, dims, r, n, S){
+    const g = SECTIONS[shape].geom(dims, r);
+    const R = g.R;
+    const V = (R>0 && n>0 && S>0) ? (1/n)*Math.pow(R, 2/3)*Math.sqrt(S) : 0;
+    return g.A * V;
+  },
+  /* 坡度、粗糙係數的反解與斷面形狀無關，只吃 R */
+  sFromR(V, R, n){ return (R>0 && V>0 && n>0) ? Math.pow(V*n/Math.pow(R, 2/3), 2) : NaN; },
+  nFromR(V, R, S){ return (R>0 && V>0 && S>0) ? Math.pow(R, 2/3)*Math.sqrt(S)/V : NaN; },
+  /* 福祿數：只有存在自由水面（T>0）才有意義 */
+  froude(V, A, T){ return (T>0 && A>0 && isFinite(V)) ? V/Math.sqrt(G*A/T) : NaN; },
 
-  /* 充滿度求解：V(r) 在 r≈0.813 有極大、Q(r) 在 r≈0.938 有極大，皆非單調。
-     直接二分法會 (a) 在有兩解時只找到一個，(b) 在兩端同號時誤判無解。
-     因此改為掃描找符號變化區間，再對每個區間各做一次二分。 */
-  solveR(target, wantQ, Dm, n, S){
-    const val = rr => wantQ ? CALC.Q(Dm,rr,n,S) : CALC.V(Dm,rr,n,S);
-    const N = 2000, lo = 0.001, hi = 1.0;
+  /* 水深求解：掃描找符號變化區間，再對每個區間二分。
+     圓管的 V(r)、Q(r) 非單調（V 在 r≈0.813、Q 在 r≈0.938 有極大），
+     直接二分會在有兩解時只找到一個、或在兩端同號時誤判無解。
+     矩形／梯形明溝是單調遞增，同一套掃描法一樣適用。 */
+  solveDepth(shape, dims, n, S, target, wantQ){
+    const val = rr => wantQ ? CALC.Qof(shape, dims, rr, n, S) : CALC.Vof(shape, dims, rr, n, S);
+    const sc = SECTIONS[shape];
+    const N = 2000, lo = 0.0005, hi = sc.solveHi ? sc.solveHi(dims) : 1.0;
     const roots = [];
     let prevR = lo, prevF = val(lo) - target;
     for(let i=1;i<=N;i++){
@@ -489,45 +654,159 @@ const CALC = {
       }
       prevR = rr; prevF = f;
     }
-    /* 極值（供 UI 說明用） */
     let peakR = lo, peakV = -Infinity;
     for(let i=0;i<=N;i++){ const rr = lo+(hi-lo)*i/N, v = val(rr); if(v>peakV){ peakV=v; peakR=rr; } }
-    return { roots, peakR, peakV, atFull: val(1.0) };
+    return { roots, peakR, peakV, hi, atFull: val(hi) };
   },
+
+  /* 斷面尺寸求解：固定 r（圓管＝充滿度；明溝＝水深，因為溝深 H 不變所以 r 也不變），
+     只放大 sizeKey 這一個尺寸。三種斷面的 V、Q 對該尺寸都是單調遞增，
+     所以用「倍增找上界 → 二分」即可，不需要解析式。
+     回傳 { ok, size(mm), ceiling } —— 明溝解 V 時 R 最多只趨近水深 y，
+     流速有上限，此時 ok=false 並回報那個上限。 */
+  solveSize(shape, dims, r, n, S, target, wantQ){
+    const key = SECTIONS[shape].sizeKey;
+    const at = s => {
+      const d = Object.assign({}, dims); d[key] = s;
+      return wantQ ? CALC.Qof(shape, d, r, n, S) : CALC.Vof(shape, d, r, n, S);
+    };
+    if(!(target>0) || !(n>0) || !(S>0) || !(r>0)) return {ok:false, size:NaN, ceiling:NaN};
+    const CAP = 1e8;                       // 1e8 mm = 100 km，遠超任何實務尺寸
+    const ceiling = at(CAP);
+    /* 二分法要求 at(lo) < target ≤ at(hi)。梯形在 b=0 時仍是三角形斷面、
+       at(0) 並不為零，若目標已低於 at(0) 就沒有正的 b 需要解，直接回報。
+       少了這一步，不變式反轉會讓 hi 收斂到 0 卻回報成功。 */
+    if(at(0) >= target) return {ok:true, size:0, ceiling, atZero:true};
+    let hi = Math.max(1, dims[key] || 1);
+    let guard = 0;
+    while(at(hi) < target && hi < CAP && guard++ < 200) hi *= 2;
+    if(at(hi) < target) return {ok:false, size:NaN, ceiling};
+    let lo = 0;
+    for(let k=0;k<200;k++){
+      const m = (lo+hi)/2;
+      if(at(m) < target) lo = m; else hi = m;
+    }
+    return {ok:true, size:(lo+hi)/2, ceiling};
+  },
+
+  /* ── 圓管相容層 ──────────────────────────────────────────
+     舊版分享連結與 tests/verify.js 沿用這組簽章（尺寸以「公尺」代入）。 */
+  theta(r){ return 2*Math.acos(Math.max(-1, Math.min(1, 1-2*r))); },
+  shapeF(r){ const th = CALC.theta(r); return (r<=0 || th<=0) ? 0 : (th - Math.sin(th))/(4*th); },  // R/D
+  shapeG(r){ const th = CALC.theta(r); return r<=0 ? 0 : (th - Math.sin(th))/8; },                  // A/D²
+  geom(Dm, r){
+    const g = SECTIONS.circle.geom({D: Dm*1000}, r);
+    return { R:g.R, A:g.A, P:g.P, T:g.T, f:CALC.shapeF(r), g:CALC.shapeG(r), th:g.th };
+  },
+  V(Dm, r, n, S){ return CALC.Vof('circle', {D: Dm*1000}, r, n, S); },
+  Q(Dm, r, n, S){ return CALC.Qof('circle', {D: Dm*1000}, r, n, S); },
+  /* D = (V·n/√S)^1.5 / f　（由 V = (1/n)(D·f)^(2/3)√S 反解） */
+  dFromV(V, n, S, r){ const f = CALC.shapeF(r); return f>0 ? Math.pow(V*n/Math.sqrt(S), 1.5)/f : NaN; },
+  /* Q = (g·f^(2/3)/n)·D^(8/3)·√S */
+  dFromQ(Q, n, S, r){
+    const f = CALC.shapeF(r), g = CALC.shapeG(r), K = g*Math.pow(f,2/3)/n;
+    return K>0 ? Math.pow(Q/(K*Math.sqrt(S)), 3/8) : NaN;
+  },
+  sFromV(V, Dm, r, n){ return CALC.sFromR(V, CALC.geom(Dm,r).R, n); },
+  nFromV(V, Dm, r, S){ return CALC.nFromR(V, CALC.geom(Dm,r).R, S); },
+  solveR(target, wantQ, Dm, n, S){ return CALC.solveDepth('circle', {D: Dm*1000}, n, S, target, wantQ); },
 };
 
+/* ── 狀態 ──────────────────────────────────────────────────── */
 const DEFAULTS = {
-  solveFor:'V', D:100, S_denom:100, r:50,
-  material:'pvc', n_custom:0.010,
+  shape:'circle', solveFor:'V',
+  D:100,                       // 圓管管徑 mm
+  b:450, H:600, z:1, capped:false, y:400,   // 明溝：底寬／溝深／邊坡／有頂版／水深 mm
+  r:50,                        // 圓管充滿度 %
+  S_denom:100,
+  material:'pvc', materialCh:'conc_float', n_custom:0.010,
   knownMode:'V', knownV:0.6, knownQ:1.9,
-  vmin:0.6, vmax:3.0, rmax:70, use:'sewer',
+  vmin:0.6, vmax:3.0, rmax:70, fb:0, use:'sewer',
   sizes:'50,65,75,100,125,150,200,250,300,350,400,450,500,600,700,800,900,1000',
+  sizesCh:'300,450,600,750,900,1050,1200,1500,1800,2000,2400,3000',
 };
 let state = JSON.parse(JSON.stringify(DEFAULTS));
 readHash();
+/* 相容更早版本的分享連結：舊的 solveFor 用 'D' 與 'r' 表示尺寸與水深 */
+if(state.solveFor === 'D') state.solveFor = 'size';
+if(state.solveFor === 'r') state.solveFor = 'depth';
+if(!Object.prototype.hasOwnProperty.call(SECTIONS, state.shape)) state.shape = 'circle';
 
+function sec(){ return SECTIONS[state.shape]; }
+function isPipe(){ return sec().isPipe; }
+function dims(){
+  return state.shape==='circle' ? {D:state.D}
+       : state.shape==='rect'   ? {b:state.b, H:state.H, capped:state.capped}
+       :                          {b:state.b, H:state.H, z:state.z};
+}
+function maxDepthMm(){ return sec().maxDepthMm(dims()); }
+/* 水深比值 r（0~1）：圓管直接用充滿度，明溝由水深 ÷ 溝深換算 */
+function depthRatio(){
+  if(state.shape==='circle') return state.r/100;
+  const H = maxDepthMm();
+  return H>0 ? state.y/H : 0;
+}
 function currentN(){
-  if(state.material === 'custom') return state.n_custom;
-  const m = MATERIALS.find(m=>m.key===state.material);
+  const list = isPipe() ? PIPE_MATERIALS : CHANNEL_MATERIALS;
+  const key  = isPipe() ? state.material : state.materialCh;
+  if(key === 'custom') return state.n_custom;
+  const m = list.find(m=>m.key===key);
   return m ? m.n : 0.013;
 }
+function sizeList(){ return parseSizes(isPipe() ? state.sizes : state.sizesCh); }
+function targetLabel(key){
+  const t = TARGETS.find(x=>x.key===key);
+  if(key==='size')  return {label:sec().sizeSym,  lbl:sec().sizeName,  unit:'mm'};
+  if(key==='depth') return {label:sec().depthSym, lbl:sec().depthName, unit:sec().depthUnit};
+  return {label:t.label, lbl:t.lbl, unit:t.unit};
+}
+
+/* ══ 斷面選擇器 ══ */
+const shapeSelector = $('shapeSelector');
+Object.values(SECTIONS).forEach(s=>{
+  const b = document.createElement('button');
+  b.type='button'; b.className='shape-btn'; b.dataset.key = s.key;
+  b.innerHTML = '<span class="gl" aria-hidden="true">'+s.glyph+'</span>'+
+                '<span class="nm">'+s.label+'</span><span class="sb">'+s.sub+'</span>';
+  b.setAttribute('aria-pressed','false');
+  b.onclick = ()=>{
+    /* 只換斷面，不動任何門檻。舊版會在這裡自動套用另一組預設，
+       結果是同一組輸入在來回切換斷面後檢核結論會改變（例如充滿度上限
+       70% 被換成 100%，原本 fail 的變 pass），而且換不回來。
+       門檻不相稱時改由下方檢核列提示，由使用者自己決定要不要換。 */
+    state.shape = s.key;
+    buildInputs(); render();
+  };
+  shapeSelector.appendChild(b);
+});
 
 /* ══ 求解選擇器 ══ */
 const solveSelector = $('solveSelector');
 TARGETS.forEach(t=>{
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'seg-btn'; b.dataset.key = t.key;
-  b.innerHTML = t.label + '<span class="lbl">'+t.lbl+'</span>';
   b.setAttribute('aria-pressed', 'false');
   b.onclick = ()=>{ state.solveFor = t.key; buildInputs(); render(); };
   solveSelector.appendChild(b);
 });
+function paintSolveSelector(){
+  document.querySelectorAll('.seg-btn').forEach(b=>{
+    const t = targetLabel(b.dataset.key);
+    b.innerHTML = t.label + '<span class="lbl">'+t.lbl+'</span>';
+    const on = b.dataset.key===state.solveFor;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on?'true':'false');
+  });
+  document.querySelectorAll('.shape-btn').forEach(b=>{
+    const on = b.dataset.key===state.shape;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on?'true':'false');
+  });
+}
 
-/* ══ 輸入欄位：只在「求解目標改變」時重建，打字時不重建（原版每個 keystroke 都重建 → 失焦） ══ */
+/* ══ 輸入欄位：只在「斷面或求解目標改變」時重建，打字時不重建 ══ */
 function buildInputs(){
   const target = state.solveFor;
   const el = $('inputFields'); el.innerHTML = '';
-  const needKnown = ['S','D','n','r'].includes(target);
+  const needKnown = ['S','size','n','depth'].includes(target);
 
   if(needKnown){
     const w = document.createElement('div');
@@ -546,118 +825,246 @@ function buildInputs(){
       v=>{ if(state.knownMode==='V') state.knownV = isFinite(v)?v:0; else state.knownQ = isFinite(v)?v:0; });
   }
 
-  if(target !== 'D'){
+  /* 斷面尺寸欄位（求解目標是尺寸時，該欄位不出現） */
+  sec().dims.forEach(dm=>{
+    if(target==='size' && dm.k===sec().sizeKey) return;
     const f = document.createElement('div'); f.className='field';
-    f.innerHTML = '<label for="inD">管徑 D (mm)</label><input type="number" id="inD" step="1" min="1"><div class="sub-hint" id="hintD"></div>';
+    f.innerHTML = '<label for="in_'+dm.k+'">'+dm.label+'</label>'+
+                  '<input type="number" id="in_'+dm.k+'" step="'+dm.step+'" min="'+dm.min+'">'+
+                  '<div class="sub-hint" id="hint_'+dm.k+'"></div>';
     el.appendChild(f);
-    bindInput($('inD'), ()=>state.D, v=>{ state.D = isFinite(v)?v:0; });
+    bindInput($('in_'+dm.k), ()=>state[dm.k], v=>{ state[dm.k] = isFinite(v)?v:0; });
+  });
+
+  /* 矩形的頂版開關 */
+  if(state.shape==='rect'){
+    const f = document.createElement('div'); f.className='field';
+    f.innerHTML = '<label class="chk"><input type="checkbox" id="inCapped"'+(state.capped?' checked':'')+'>'+
+                  '<span>有頂版（箱涵／暗溝）</span></label>'+
+                  '<div class="sub-hint">只有水面頂到頂版（水深＝溝深）時才改變濕周；未滿時與明溝相同</div>';
+    el.appendChild(f);
+    $('inCapped').onchange = e=>{ state.capped = e.target.checked; render(); };
   }
+
   if(target !== 'S'){
     const f = document.createElement('div'); f.className='field';
     f.innerHTML = '<label for="inS">坡度　1 / ___</label><input type="number" id="inS" step="1" min="0.0001"><div class="sub-hint" id="hintS"></div>';
     el.appendChild(f);
     bindInput($('inS'), ()=>state.S_denom, v=>{ state.S_denom = (isFinite(v)&&v>0)?v:1; });
   }
-  if(target !== 'r'){
+
+  if(target !== 'depth'){
     const f = document.createElement('div'); f.className='field';
-    f.innerHTML = '<label for="inR">充滿度 r (%)</label><input type="number" id="inR" step="1" min="0.1" max="100"><div class="sub-hint" id="hintR"></div>';
-    el.appendChild(f);
-    bindInput($('inR'), ()=>state.r, v=>{ state.r = isFinite(v)?v:0; });
+    if(state.shape==='circle'){
+      f.innerHTML = '<label for="inDepth">充滿度 r (%)</label><input type="number" id="inDepth" step="1" min="0.1" max="100"><div class="sub-hint" id="hintDepth"></div>';
+      el.appendChild(f);
+      bindInput($('inDepth'), ()=>state.r, v=>{ state.r = isFinite(v)?v:0; });
+    } else {
+      f.innerHTML = '<label for="inDepth">水深 y (mm)</label><input type="number" id="inDepth" step="10" min="0"><div class="sub-hint" id="hintDepth"></div>';
+      el.appendChild(f);
+      bindInput($('inDepth'), ()=>state.y, v=>{ state.y = isFinite(v)?v:0; });
+    }
   }
+
   if(target !== 'n'){
+    const list = isPipe() ? PIPE_MATERIALS : CHANNEL_MATERIALS;
+    const cur  = isPipe() ? state.material : state.materialCh;
     const f = document.createElement('div'); f.className='field';
-    const opts = MATERIALS.map(m=>'<option value="'+m.key+'"'+(state.material===m.key?' selected':'')+'>'+m.label+(m.n?' (n='+m.n.toFixed(3)+')':'')+'</option>').join('');
-    f.innerHTML = '<label for="inMat">管材 n</label><select id="inMat">'+opts+'</select>'+
-      '<div id="customNWrap" style="margin-top:8px;'+(state.material==='custom'?'':'display:none')+'">'+
+    const opts = list.map(m=>'<option value="'+m.key+'"'+(cur===m.key?' selected':'')+'>'+m.label+(m.n?'　n='+m.n.toFixed(3):'')+'</option>').join('');
+    f.innerHTML = '<label for="inMat">'+(isPipe()?'管材':'溝壁材質')+' n</label><select id="inMat">'+opts+'</select>'+
+      '<div id="customNWrap" style="margin-top:8px;'+(cur==='custom'?'':'display:none')+'">'+
       '<input type="number" id="inNCustom" step="0.001" min="0.005" aria-label="自訂 n 值"></div>';
     el.appendChild(f);
-    $('inMat').onchange = e=>{ state.material = e.target.value; buildInputs(); render(); };
+    $('inMat').onchange = e=>{
+      if(isPipe()) state.material = e.target.value; else state.materialCh = e.target.value;
+      buildInputs(); render();
+    };
     if($('inNCustom')) bindInput($('inNCustom'), ()=>state.n_custom, v=>{ state.n_custom = (isFinite(v)&&v>0)?v:0.01; });
   }
 }
 
 /* ══ 門檻 ══ */
+function applyPreset(key){
+  const p = USE_PRESETS[key];
+  if(!p) return;
+  state.use = key;
+  state.vmin=p.vmin; state.vmax=p.vmax; state.rmax=p.rmax; state.fb=p.fb;
+  if($('cfgVmin')) $('cfgVmin').value=p.vmin;
+  if($('cfgVmax')) $('cfgVmax').value=p.vmax;
+  if($('cfgRmax')) $('cfgRmax').value=p.rmax;
+  if($('cfgFb'))   $('cfgFb').value=p.fb;
+  if($('cfgUse'))  $('cfgUse').value=key;
+}
 $('cfgUse').onchange = e=>{
-  state.use = e.target.value;
-  const p = USE_PRESETS[state.use];
-  if(p){ state.vmin=p.vmin; state.vmax=p.vmax; state.rmax=p.rmax;
-    $('cfgVmin').value=p.vmin; $('cfgVmax').value=p.vmax; $('cfgRmax').value=p.rmax; }
-  render();
+  if(e.target.value==='none'){ state.use='none'; render(); return; }
+  applyPreset(e.target.value); render();
 };
-[['cfgVmin','vmin'],['cfgVmax','vmax'],['cfgRmax','rmax']].forEach(([id,k])=>
+[['cfgVmin','vmin'],['cfgVmax','vmax'],['cfgRmax','rmax'],['cfgFb','fb']].forEach(([id,k])=>
   bindInput($(id), ()=>state[k], v=>{ state[k] = isFinite(v)?v:0; state.use='none'; $('cfgUse').value='none'; }));
-bindInput($('cfgSizes'), ()=>state.sizes, v=>{ state.sizes = v; });
+bindInput($('cfgSizes'), ()=>isPipe()?state.sizes:state.sizesCh,
+  v=>{ if(isPipe()) state.sizes = v; else state.sizesCh = v; });
 
 /* ══ 計算 ══ */
 function compute(){
-  const Dmm = state.D, Dm = Dmm/1000, S = 1/state.S_denom, r = state.r/100, n = currentN();
-  const out = { D:Dmm, S, r:state.r, n, V:null, Q:null, R:null, A:null, P:null, valid:true, note:'', roots:null };
+  const shape = state.shape, d = dims();
+  const S = 1/state.S_denom, n = currentN();
+  const r0 = depthRatio();
+  const out = { shape, dims:d, S, n, r:r0, V:null, Q:null, R:null, A:null, P:null, T:null,
+                yMm:null, Fr:NaN, size:null, valid:true, note:'', roots:null, S_denom_calc:null };
+
+  const finish = (dd, rr, V) => {
+    const g = SECTIONS[shape].geom(dd, rr);
+    /* geom 內部已把 r 夾在 0~1，這裡跟著夾，否則 out.r 與 out.yMm 會互相矛盾
+       （例如水深 900 mm、溝深 600 mm 時顯示「600 mm ＝ 溝深的 150%」）。
+       輸入值本身是否溢流，另由下方的溢流檢核以未夾限的 state.y 判定。 */
+    out.dims = dd; out.r = Math.max(0, Math.min(1, rr));
+    out.R=g.R; out.A=g.A; out.P=g.P; out.T=g.T; out.yMm = g.y*1000;
+    out.V = V; out.Q = g.A*V*1000;                 // Q 以 L/s 呈現
+    out.Fr = CALC.froude(V, g.A, g.T);
+    out.size = dd[SECTIONS[shape].sizeKey];
+  };
+
+  /* 明溝：輸入水深大於溝深時，水根本到不了那個深度（會先從溝頂溢流）。
+     這種情況直接判無解，並把「滿水時能通多少」寫進說明，
+     否則主結果會端出夾限後的滿水值，看起來像是那個水深真的算得出來。 */
+  if(!SECTIONS[shape].isPipe && state.solveFor !== 'depth' && r0 > 1 + 1e-12){
+    const Hmm = SECTIONS[shape].maxDepthMm(d);
+    const rFull = SECTIONS[shape].solveHi ? SECTIONS[shape].solveHi(d) : 1;
+    out.valid = false;
+    out.note = '水深 '+fmt(state.y,0)+' mm 超過溝深 '+fmt(Hmm,0)+' mm，水會先從溝頂溢流，'+
+               '不可能在溝內達到這個深度。此斷面在滿水（水深 '+fmt(Hmm,0)+' mm）時的通水量為 '+
+               fmt(CALC.Qof(shape, d, rFull, n, S)*1000, 2)+' L/s。請降低設計水深，或加大溝深。';
+    return out;
+  }
 
   if(state.solveFor==='V' || state.solveFor==='Q'){
-    const g = CALC.geom(Dm, r);
-    const V = CALC.V(Dm, r, n, S);
-    Object.assign(out, {R:g.R, A:g.A, P:g.P, V, Q:g.A*V*1000});
+    finish(d, r0, CALC.Vof(shape, d, r0, n, S));
   }
   else if(state.solveFor==='S'){
-    const g = CALC.geom(Dm, r);
+    const g = SECTIONS[shape].geom(d, r0);
     const Vt = state.knownMode==='V' ? state.knownV : (g.A>0 ? (state.knownQ/1000)/g.A : NaN);
-    const Sreq = CALC.sFromV(Vt, Dm, r, n);
-    Object.assign(out, {R:g.R, A:g.A, P:g.P, V:Vt, Q:g.A*Vt*1000, S:Sreq});
-    if(Sreq>0) out.S_denom_calc = 1/Sreq;
-    if(!isFinite(Sreq) || Sreq<=0) out.valid = false;
-  }
-  else if(state.solveFor==='D'){
-    const Dsolved = state.knownMode==='V'
-      ? CALC.dFromV(state.knownV, n, S, r)
-      : CALC.dFromQ(state.knownQ/1000, n, S, r);
-    if(!isFinite(Dsolved) || Dsolved<=0){ out.valid=false; }
-    else {
-      const g = CALC.geom(Dsolved, r);
-      const V = CALC.V(Dsolved, r, n, S);
-      Object.assign(out, {D:Dsolved*1000, R:g.R, A:g.A, P:g.P, V, Q:g.A*V*1000});
-    }
+    const Sreq = CALC.sFromR(Vt, g.R, n);
+    finish(d, r0, Vt);
+    out.S = Sreq;
+    if(isFinite(Sreq) && Sreq>0) out.S_denom_calc = 1/Sreq;
+    else out.valid = false;
   }
   else if(state.solveFor==='n'){
-    const g = CALC.geom(Dm, r);
+    const g = SECTIONS[shape].geom(d, r0);
     const Vt = state.knownMode==='V' ? state.knownV : (g.A>0 ? (state.knownQ/1000)/g.A : NaN);
-    const nS = CALC.nFromV(Vt, Dm, r, S);
-    Object.assign(out, {R:g.R, A:g.A, P:g.P, V:Vt, Q:g.A*Vt*1000, n:nS});
-    if(!isFinite(nS) || nS<=0) out.valid=false;
+    const nSol = CALC.nFromR(Vt, g.R, S);
+    finish(d, r0, Vt);
+    out.n = nSol;
+    if(!isFinite(nSol) || nSol<=0) out.valid = false;
   }
-  else if(state.solveFor==='r'){
+  else if(state.solveFor==='size'){
     const wantQ = state.knownMode==='Q';
     const targetVal = wantQ ? state.knownQ/1000 : state.knownV;
-    const sol = CALC.solveR(targetVal, wantQ, Dm, n, S);
+    const sol = CALC.solveSize(shape, d, r0, n, S, targetVal, wantQ);
+    if(!sol.ok){
+      out.valid = false;
+      out.note = wantQ
+        ? '在目前的水深、坡度與粗糙係數下解不出尺寸，請確認輸入值。'
+        : '流速在這個斷面有上限：把'+sec().sizeName+'無限加大，水力半徑最多只趨近水深，'+
+          '流速上限約 '+fmt(sol.ceiling,3)+' m/s，低於目標 '+fmt(targetVal,3)+' m/s。'+
+          '請改為加深水深或加陡坡度。';
+    } else {
+      const dd = Object.assign({}, d); dd[SECTIONS[shape].sizeKey] = sol.size;
+      finish(dd, r0, CALC.Vof(shape, dd, r0, n, S));
+    }
+  }
+  else if(state.solveFor==='depth'){
+    const wantQ = state.knownMode==='Q';
+    const targetVal = wantQ ? state.knownQ/1000 : state.knownV;
+    const sol = CALC.solveDepth(shape, d, n, S, targetVal, wantQ);
     out.roots = sol;
     if(!sol.roots.length){
       out.valid = false;
+      const unit = wantQ ? ' L/s' : ' m/s', k = wantQ ? 1000 : 1;
       out.note = (targetVal > sol.peakV)
-        ? '目標值 '+fmt(wantQ?targetVal*1000:targetVal, 3)+(wantQ?' L/s':' m/s')+' 超過此管在此坡度下的最大可能值 '+fmt(wantQ?sol.peakV*1000:sol.peakV, 3)+(wantQ?' L/s':' m/s')+'（發生在 r = '+fmt(sol.peakR*100,1)+'%）。請加大管徑或加陡坡度。'
-        : '在 0.1%~100% 充滿度範圍內找不到解，請確認輸入。';
+        ? '目標值 '+fmt(targetVal*k,3)+unit+' 超過這個斷面在此坡度下的最大通水能力 '+
+          fmt(sol.peakV*k,3)+unit+'（發生在水深比 '+fmt(sol.peakR*100,1)+'%）。請加大斷面或加陡坡度。'
+        : '在 0~100% 水深範圍內找不到解，請確認輸入值。';
     } else {
       const rr = sol.roots[0];
-      const g = CALC.geom(Dm, rr);
-      const V = CALC.V(Dm, rr, n, S);
-      Object.assign(out, {r:rr*100, R:g.R, A:g.A, P:g.P, V, Q:g.A*V*1000});
+      finish(d, rr, CALC.Vof(shape, d, rr, n, S));
     }
   }
   return out;
 }
 
+/* ══ 斷面示意圖 ══ */
+function drawSection(res){
+  const g = $('sectionShape'), rect = $('waterRect'), line = $('waterLine');
+  const rr = res.valid ? Math.max(0, Math.min(1, res.r)) : 0;
+  const CX = 95, TOP = 16, BOT = 124, HH = BOT - TOP, HALF = 62;
+  let path = '', x1 = CX-HALF, x2 = CX+HALF;
+
+  if(state.shape==='circle'){
+    const R = Math.min(HALF, HH/2), cy = (TOP+BOT)/2;
+    path = '<circle cx="'+CX+'" cy="'+cy+'" r="'+R+'" fill="none" stroke="#2a4360" stroke-width="2.5"/>'+
+           '<circle cx="'+CX+'" cy="'+cy+'" r="'+R+'" fill="url(#waterGrad)" clip-path="url(#waterClip)"/>';
+    const fillH = rr*(2*R), yTop = (cy+R) - fillH;
+    rect.setAttribute('y', yTop); rect.setAttribute('height', Math.max(0,fillH));
+    const halfChord = Math.sqrt(Math.max(0, R*R - Math.pow(yTop-cy, 2)));
+    x1 = CX-halfChord; x2 = CX+halfChord;
+    line.setAttribute('y1', yTop); line.setAttribute('y2', yTop);
+  } else {
+    const d = res.dims, Hmm = SECTIONS[state.shape].maxDepthMm(d);
+    const bmm = d.b, z = state.shape==='trap' ? Math.max(0,d.z) : 0;
+    const topW = bmm + 2*z*Hmm;
+    const wRef = Math.max(topW, bmm, 1);
+    const sc = Math.min((2*HALF)/wRef, HH/Math.max(Hmm,1));
+    const bw = bmm*sc, tw = topW*sc, hh = Hmm*sc;
+    const yBot = BOT, yTopEdge = BOT - hh;
+    const bl = CX-bw/2, br = CX+bw/2, tl = CX-tw/2, tr = CX+tw/2;
+    const capTop = (state.shape==='rect' && state.capped)
+      ? '<line x1="'+tl+'" y1="'+yTopEdge+'" x2="'+tr+'" y2="'+yTopEdge+'" stroke="#2a4360" stroke-width="2.5" stroke-dasharray="5,3"/>' : '';
+    const poly = tl+','+yTopEdge+' '+bl+','+yBot+' '+br+','+yBot+' '+tr+','+yTopEdge;
+    path = '<polygon points="'+poly+'" fill="url(#waterGrad)" clip-path="url(#waterClip)"/>'+
+           '<polyline points="'+poly+'" fill="none" stroke="#2a4360" stroke-width="2.5" stroke-linejoin="round"/>'+ capTop;
+    const fillH = rr*hh, yW = yBot - fillH;
+    rect.setAttribute('y', yW); rect.setAttribute('height', Math.max(0,fillH));
+    const wAtY = (bmm + 2*z*(rr*Hmm))*sc;
+    x1 = CX-wAtY/2; x2 = CX+wAtY/2;
+    line.setAttribute('y1', yW); line.setAttribute('y2', yW);
+  }
+  rect.setAttribute('x', 0); rect.setAttribute('width', 190);
+  g.innerHTML = path;
+  line.setAttribute('x1', x1); line.setAttribute('x2', x2);
+  line.setAttribute('opacity', rr>0 && rr<1 ? 0.9 : 0);
+
+  $('sectionLabel').textContent = !res.valid ? '—'
+    : (state.shape==='circle'
+        ? '充滿度 '+fmt(res.r*100,1)+'%　水深 '+fmt(res.yMm,1)+' mm'
+        : '水深 '+fmt(res.yMm,1)+' mm　（溝深的 '+fmt(res.r*100,1)+'%）');
+}
+
 /* ══ 繪製 ══ */
 function render(){
-  document.querySelectorAll('.seg-btn').forEach(b=>{
-    const on = b.dataset.key===state.solveFor;
-    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on?'true':'false');
-  });
-  if($('hintD')) $('hintD').textContent = '≈ '+(state.D/25.4).toFixed(2)+' 吋';
+  paintSolveSelector();
+
+  /* 輸入提示 */
+  if($('hint_D')) $('hint_D').textContent = '≈ '+(state.D/25.4).toFixed(2)+' 吋';
+  if($('hint_b')) $('hint_b').textContent = '溝底的內側淨寬，不含溝壁厚度';
+  if($('hint_H')) $('hint_H').textContent = '溝底到溝頂的內側淨深';
+  if($('hint_z')) $('hint_z').textContent = state.z>0
+      ? '每往上 1，往外擴 '+fmt(state.z,2)+'（頂寬 ＝ b + 2·z·H ＝ '+fmt(state.b+2*state.z*state.H,0)+' mm）'
+      : 'z = 0 即為矩形';
   if($('hintS')) $('hintS').textContent = '＝ '+(1/state.S_denom).toFixed(5)+'（小數）＝ '+fmt(100/state.S_denom,3)+' %';
-  if($('hintR')) $('hintR').textContent = '水深 ≈ '+(state.r/100*state.D).toFixed(1)+' mm';
+  if($('hintDepth')){
+    $('hintDepth').textContent = state.shape==='circle'
+      ? '水深 ≈ '+fmt(state.r/100*state.D,1)+' mm'
+      : '＝ 溝深的 '+fmt(maxDepthMm()>0 ? state.y/maxDepthMm()*100 : 0, 1)+'%　・出水高 '+fmt(maxDepthMm()-state.y,0)+' mm';
+  }
+  $('fbWrap').style.display = isPipe() ? 'none' : '';
+  $('cfgSizesLabel').textContent = (isPipe()?'標準管徑':'標準溝寬')+'對照表 (mm，逗號分隔)';
+  if($('cfgSizes') && document.activeElement !== $('cfgSizes')) $('cfgSizes').value = isPipe()?state.sizes:state.sizesCh;
 
   const res = compute();
-  const t = TARGETS.find(x=>x.key===state.solveFor);
+  const t = targetLabel(state.solveFor);
   $('resultLabel').textContent = t.lbl + ' ' + t.label;
-  const sizes = parseSizes(state.sizes);
+  const sizes = sizeList();
 
   let mainVal='—', mainUnit='', sub='';
   if(!res.valid){
@@ -667,14 +1074,25 @@ function render(){
       case 'V': mainVal=fmt(res.V,3); mainUnit='m/s'; sub='Q = '+fmt(res.Q,2)+' L/s ＝ '+fmt(res.Q*3.6,2)+' m³/hr'; break;
       case 'Q': mainVal=fmt(res.Q,2); mainUnit='L/s'; sub='＝ '+fmt(res.Q*3.6,2)+' m³/hr ＝ '+fmt(res.Q*86.4,1)+' m³/日 ・ V = '+fmt(res.V,3)+' m/s'; break;
       case 'S': mainVal='1 / '+fmt(res.S_denom_calc,1); sub='小數 = '+res.S.toFixed(6)+' ＝ '+fmt(res.S*100,4)+' %'; break;
-      case 'D': {
-        const std = nextStandard(sizes, res.D);
-        mainVal=fmt(res.D,1); mainUnit='mm';
-        sub='≈ '+(res.D/25.4).toFixed(2)+' 吋　→　建議採用標準管徑 '+(std!==null?fmt(std,0)+' mm':'超出對照表');
+      case 'n': mainVal=res.n.toFixed(4); sub='對照下方材質表找最接近的'+(isPipe()?'管材':'溝壁材質'); break;
+      case 'size': {
+        const std = nextStandard(sizes, res.size);
+        mainVal=fmt(res.size,1); mainUnit='mm';
+        sub=(isPipe()? '≈ '+(res.size/25.4).toFixed(2)+' 吋　→　' : '→　')+
+            '建議採用標準'+(isPipe()?'管徑 ':'溝寬 ')+(std!==null?fmt(std,0)+' mm':'超出對照表');
         break;
       }
-      case 'n': mainVal=res.n.toFixed(4); sub='對照下方材質表找最接近的管材'; break;
-      case 'r': mainVal=fmt(res.r,1); mainUnit='%'; sub='水深 ≈ '+fmt(res.r/100*res.D,1)+' mm'+(res.roots && res.roots.roots.length>1 ? '（此目標值有 '+res.roots.roots.length+' 個解，見下方說明）':''); break;
+      case 'depth': {
+        if(state.shape==='circle'){
+          mainVal=fmt(res.r*100,1); mainUnit='%';
+          sub='水深 ≈ '+fmt(res.yMm,1)+' mm';
+        } else {
+          mainVal=fmt(res.yMm,1); mainUnit='mm';
+          sub='＝ 溝深的 '+fmt(res.r*100,1)+'%　・出水高 '+fmt(maxDepthMm()-res.yMm,0)+' mm';
+        }
+        if(res.roots && res.roots.roots.length>1) sub += '（此目標值有 '+res.roots.roots.length+' 個解，見下方說明）';
+        break;
+      }
     }
   }
   $('resultValue').textContent = mainVal;
@@ -687,74 +1105,196 @@ function render(){
     '<div class="derived-item"><div class="k">A 通水斷面積</div><div class="v">'+(res.A!=null?fmt(res.A,5)+' m²':'—')+'</div></div>'+
     '<div class="derived-item"><div class="k">P 濕周</div><div class="v">'+(res.P!=null?fmt(res.P,4)+' m':'—')+'</div></div>';
 
-  /* 滿管特性 */
-  const Dm_ = (state.solveFor==='D' && res.valid ? res.D : state.D)/1000;
-  const n_ = res.n>0 ? res.n : currentN();
-  const S_ = state.solveFor==='S' && res.valid ? res.S : 1/state.S_denom;
-  const Vfull = CALC.V(Dm_, 1, n_, S_), Qfull = CALC.Q(Dm_, 1, n_, S_)*1000;
-  const solQ = CALC.solveR(Infinity, true, Dm_, n_, S_);
-  const solV = CALC.solveR(Infinity, false, Dm_, n_, S_);
-  $('fullGrid').innerHTML =
-    '<div class="derived-item"><div class="k">滿管流速 V<sub>full</sub></div><div class="v">'+fmt(Vfull,3)+' m/s</div></div>'+
-    '<div class="derived-item"><div class="k">滿管流量 Q<sub>full</sub></div><div class="v">'+fmt(Qfull,2)+' L/s</div></div>'+
-    '<div class="derived-item"><div class="k">V<sub>max</sub>（r='+fmt(solV.peakR*100,1)+'%）</div><div class="v">'+fmt(solV.peakV,3)+' m/s（×'+fmt(Vfull>0?solV.peakV/Vfull:NaN,3)+'）</div></div>'+
-    '<div class="derived-item"><div class="k">Q<sub>max</sub>（r='+fmt(solQ.peakR*100,1)+'%）</div><div class="v">'+fmt(solQ.peakV*1000,2)+' L/s（×'+fmt(Qfull>0?solQ.peakV*1000/Qfull:NaN,3)+'）</div></div>';
+  drawSection(res);
 
-  /* 管內水位圖 */
-  const rFrac = res.valid ? (state.solveFor==='r' ? res.r/100 : state.r/100) : 0;
-  const R_svg=54, cy=68, fillH = Math.max(0, Math.min(1,rFrac))*(2*R_svg), yTop = (cy+R_svg)-fillH;
-  const rect = $('waterRect'); rect.setAttribute('y', yTop); rect.setAttribute('height', fillH);
-  $('waterLine').setAttribute('y1', yTop); $('waterLine').setAttribute('y2', yTop);
-  $('pipeLabel').textContent = '充滿度 ' + (res.valid ? fmt(rFrac*100,1) : '—') + '%';
+  /* ── 斷面容量特性 ── */
+  const dCap = res.valid ? res.dims : dims();
+  const nCap = (res.n>0 && isFinite(res.n)) ? res.n : currentN();
+  const SCap = (state.solveFor==='S' && res.valid && isFinite(res.S) && res.S>0) ? res.S : 1/state.S_denom;
+  /* 有頂版的斷面在「剛好滿水」與「滿管加壓」是兩個不同的濕周，數字差很多。
+     Q/Q_full 這類比值一律以「剛好滿水」為基準，否則會出現 >1 的比值。 */
+  const rFullCap = SECTIONS[state.shape].solveHi ? SECTIONS[state.shape].solveHi(dCap) : 1;
+  const isCapped = rFullCap < 1;
+  const Vfull = CALC.Vof(state.shape, dCap, rFullCap, nCap, SCap);
+  const Qfull = CALC.Qof(state.shape, dCap, rFullCap, nCap, SCap)*1000;
+  const Vpress = isCapped ? CALC.Vof(state.shape, dCap, 1, nCap, SCap) : Vfull;
+  const Qpress = isCapped ? CALC.Qof(state.shape, dCap, 1, nCap, SCap)*1000 : Qfull;
+  if(state.shape==='circle'){
+    const solQ = CALC.solveDepth('circle', dCap, nCap, SCap, Infinity, true);
+    const solV = CALC.solveDepth('circle', dCap, nCap, SCap, Infinity, false);
+    $('capsHead').textContent = '滿管特性與充滿度曲線';
+    $('capsSub').innerHTML = '圓管有一個容易誤判的性質：<b>流速在充滿度約 81% 時最大、流量在約 94% 時最大，都不是滿管</b>。'+
+      '因此同一個目標流量在 94% 以下可能對應兩個水深，而略高於滿管流量的目標仍然有解。本工具用掃描法找出全部的解，不假設單調。';
+    $('capsGrid').innerHTML =
+      '<div class="derived-item"><div class="k">滿管流速 V<sub>full</sub></div><div class="v">'+fmt(Vfull,3)+' m/s</div></div>'+
+      '<div class="derived-item"><div class="k">滿管流量 Q<sub>full</sub></div><div class="v">'+fmt(Qfull,2)+' L/s</div></div>'+
+      '<div class="derived-item"><div class="k">V<sub>max</sub>（r='+fmt(solV.peakR*100,1)+'%）</div><div class="v">'+fmt(solV.peakV,3)+' m/s（×'+fmt(Vfull>0?solV.peakV/Vfull:NaN,3)+'）</div></div>'+
+      '<div class="derived-item"><div class="k">Q<sub>max</sub>（r='+fmt(solQ.peakR*100,1)+'%）</div><div class="v">'+fmt(solQ.peakV*1000,2)+' L/s（×'+fmt(Qfull>0?solQ.peakV*1000/Qfull:NaN,3)+'）</div></div>';
+  } else {
+    $('capsHead').textContent = '滿水容量與流況';
+    $('capsSub').innerHTML = '滿水指水面剛好到溝頂（出水高＝0），是這個斷面在重力流下的理論上限，'+
+      '<b>實際設計必須保留出水高，不能用到滿水</b>。矩形與梯形明溝的 Q 隨水深單調遞增，'+
+      '不會像圓管那樣出現同一流量對應兩個水深的情形。'+
+      (isCapped ? '　本斷面勾選了「有頂版」：水面一旦頂到頂版就<b>不再是明渠流</b>，'+
+                  '濕周多出頂版與另一側壁、通水量反而下降，實際上會轉為壓力流而不適用 Manning。'+
+                  '因此下方分開列出兩個數字，設計不應用到後者。' : '');
+    const FrTxt = isFinite(res.Fr) ? fmt(res.Fr,3)+'（'+(res.Fr<1?'亞臨界':'超臨界')+'）' : '—';
+    $('capsGrid').innerHTML =
+      '<div class="derived-item"><div class="k">'+(isCapped?'剛好滿水 V':'滿水流速 V<sub>full</sub>')+'</div><div class="v">'+fmt(Vfull,3)+' m/s</div></div>'+
+      '<div class="derived-item"><div class="k">'+(isCapped?'剛好滿水 Q（重力流上限）':'滿水流量 Q<sub>full</sub>')+'</div><div class="v">'+fmt(Qfull,2)+' L/s</div></div>'+
+      (isCapped
+        ? '<div class="derived-item"><div class="k">頂版計入濕周時 Q（僅供對照）</div><div class="v">'+fmt(Qpress,2)+' L/s</div></div>'
+        : '<div class="derived-item"><div class="k">目前 Q / Q<sub>full</sub></div><div class="v">'+fmt(Qfull>0&&res.Q!=null?res.Q/Qfull:NaN,3)+'</div></div>')+
+      '<div class="derived-item"><div class="k">福祿數 Fr</div><div class="v">'+FrTxt+'</div></div>';
+  }
 
-  /* 檢核 */
+  /* ── 檢核 ── */
   const c = $('checks'); c.innerHTML='';
+
+  /* 門檻預設組是綁用途、不是綁斷面的。切換斷面時工具不會偷改它（那會讓
+     同一組輸入的檢核結論在來回切換後改變），但如果明顯不相稱就提醒一次。 */
+  if(state.use !== 'none' && USE_PRESETS[state.use]){
+    const presetIsPipe = (state.use==='sewer' || state.use==='storm');
+    if(presetIsPipe !== isPipe()){
+      addCheck(c,'info','目前套用的門檻是「'+USE_PRESETS[state.use].label+'」，這組數值是給'+
+        (presetIsPipe?'圓管':'明溝')+'用的，套在'+(isPipe()?'圓管':'明溝')+'上不一定合適。'+
+        '請到下方「檢核門檻設定」改選'+(isPipe()?'「污水管」或「雨水管」':'「混凝土明溝／箱涵」或「土溝／草溝」')+
+        '，或直接手動填入本案適用規範的數值。');
+    }
+  }
+
   if(res.valid){
-    const V = res.V, Dmm = res.D;
+    const V = res.V, rPct = res.r*100;
     if(V!=null && isFinite(V)){
-      addCheck(c, ck(V>=state.vmin), '自淨流速下限 '+fmt(state.vmin,2)+' m/s：<b>'+fmt(V,3)+' m/s</b> '+(V>=state.vmin?'符合':'不足 — 長期會沉積結垢，管路有效斷面逐年縮小'));
-      addCheck(c, ck(V<=state.vmax), '流速上限 '+fmt(state.vmax,2)+' m/s：'+(V<=state.vmax?'未超過':'<b>超過</b> — 管壁沖蝕、噪音，並可能在跌水處產生虹吸破壞存水彎'));
+      addCheck(c, ck(V>=state.vmin), '自淨流速下限 '+fmt(state.vmin,2)+' m/s：<b>'+fmt(V,3)+' m/s</b> '+
+        (V>=state.vmin?'符合':'不足 — 泥砂會長期沉積，有效斷面逐年縮小'));
+      addCheck(c, ck(V<=state.vmax), '流速上限 '+fmt(state.vmax,2)+' m/s：'+
+        (V<=state.vmax?'未超過':'<b>超過</b> — '+(isPipe()?'管壁沖蝕、噪音，跌水處還可能虹吸破壞存水彎':'溝壁與溝底沖蝕，土溝更會直接淘刷破壞')));
     }
-    if(isFinite(rFrac)){
-      const rPct = rFrac*100;
-      addCheck(c, ck(rPct<=state.rmax), '充滿度 '+fmt(rPct,1)+'% vs 建議上限 '+fmt(state.rmax,0)+'%：'+(rPct<=state.rmax?'符合':'<b>超過</b> — 重力污水管一般設計在 50~70%D，保留斷面給通氣、尖峰與未來增量；法規未明訂統一值，此為實務門檻'));
+    addCheck(c, ck(rPct<=state.rmax), (isPipe()?'充滿度 ':'水深佔溝深 ')+fmt(rPct,1)+'% vs 建議上限 '+fmt(state.rmax,0)+'%：'+
+      (rPct<=state.rmax?'符合'
+        :'<b>超過</b> — '+(isPipe()
+            ?'重力污水管一般設計在 50~70% 管徑，保留斷面給通氣、尖峰與未來增量；法規未明訂統一值，此為實務門檻'
+            :'明溝需保留出水高吸收波浪與雜物壅塞')));
+
+    /* 明溝：出水高與溢流 */
+    if(!isPipe()){
+      const Hmm = SECTIONS[state.shape].maxDepthMm(res.dims);
+      const yReq = (state.solveFor==='depth') ? res.yMm : state.y;
+      const fbNow = Hmm - yReq;
+      if(yReq > Hmm + 1e-9){
+        addCheck(c,'fail','水深 '+fmt(yReq,1)+' mm <b>超過溝深 '+fmt(Hmm,0)+' mm，會溢流</b>。上方結果是以滿水（水深＝溝深）計算的上限值，不是實際可通過的水量。');
+      } else {
+        const fbByPct = 0.25*yReq;
+        const need = Math.max(state.fb, fbByPct);
+        const pass = fbNow >= need - 1e-9;
+        addCheck(c, ck(pass), '出水高 '+fmt(fbNow,0)+' mm vs 下限 '+fmt(need,0)+' mm'+
+          '（取「絕對值 '+fmt(state.fb,0)+' mm」與「設計水深的 25% ＝ '+fmt(fbByPct,0)+' mm」兩者較大者，'+
+          '此為《水土保持技術規範》§86 的判準）：'+
+          (pass?'符合':'<b>不足</b> — 溝深須加大，或降低設計水深'));
+      }
+      if(state.shape==='rect' && state.capped && rPct >= 99.9){
+        addCheck(c,'warn','箱涵在滿水狀態下已無自由水面，實際會轉為<b>壓力流</b>，Manning 不再適用。這裡的數字只是「剛好滿水、尚未加壓」的臨界值，設計上不應用到這一點。');
+      }
+      if(isFinite(res.Fr)){
+        if(res.Fr > 0.86 && res.Fr < 1.13){
+          addCheck(c,'warn','福祿數 Fr ＝ '+fmt(res.Fr,3)+'，落在<b>近臨界流</b>（約 0.86~1.13）。此區水面會明顯起伏、水深難以預測，設計上應調整坡度或斷面避開。');
+        } else if(res.Fr >= 1.13){
+          addCheck(c,'info','福祿數 Fr ＝ '+fmt(res.Fr,3)+' &gt; 1，屬<b>超臨界流</b>（流速快、水深淺）。銜接到緩坡段時會產生水躍，需檢討消能與該處的溝深。');
+        } else {
+          addCheck(c,'pass','福祿數 Fr ＝ '+fmt(res.Fr,3)+' &lt; 1，屬亞臨界流，是排水溝正常的流況。');
+        }
+      }
+      if(state.shape==='trap' && state.z>0){
+        addCheck(c,'info','梯形斷面的邊坡 z ＝ '+fmt(state.z,2)+'。本工具只算水理，<b>邊坡自身的穩定性須由大地工程檢核</b>；土溝邊坡一般取 z ≥ 1.0。');
+      }
     }
-    if(isFinite(res.S) && res.S>0 && isFinite(Dmm)){
+
+    /* 圓管：建築排水規範專屬檢核 */
+    if(isPipe() && isFinite(res.S) && res.S>0){
+      const Dmm = res.dims.D;
       const smin = Dmm>75 ? 1/100 : 1/50;
       const pass = res.S >= smin - 1e-12;
       addCheck(c, ck(pass), '§4.2.3 最小坡度（管徑 '+fmt(Dmm,0)+' mm '+(Dmm>75?'>75 → 1/100':'≤75 → 1/50')+'）：目前 1/'+fmt(1/res.S,1)+' '+(pass?'合規':'<b>不足，不符條文</b>'));
       if(!pass){
         const t41 = Dmm>=200 ? null : (Dmm>=150 ? 1/200 : (Dmm>=100 ? 1/150 : (Dmm>=75 ? 1/100 : 1/50)));
-        if(t41 && res.S >= t41 - 1e-12) addCheck(c,'warn','不過表 4-1 對此管徑列的最小坡度是 1/'+fmt(1/t41,0)+'，目前坡度<b>符合表 4-1 但不符 §4.2.3 條文</b>。兩者有落差，若要採用較緩坡度請在計算書內載明依據並取得審查同意。');
+        if(t41 && res.S >= t41 - 1e-12) addCheck(c,'warn','表 4-1 對此管徑列的最小坡度是 1/'+fmt(1/t41,0)+'，目前坡度<b>符合表 4-1 但不符 §4.2.3 條文</b>。兩者本身就有落差，若要採用較緩坡度請在計算書內載明依據並取得審查同意。');
         if(Dmm>=200) addCheck(c,'info','§4.2.6：管徑 ≥200 mm 且最小流速 ≥0.6 m/s 者，坡度可較平緩。目前流速 '+fmt(V,3)+' m/s'+(V>=0.6?'，符合此放寬條件。':'，未達 0.6 m/s，無法適用放寬。'));
       }
       if(Dmm < 30) addCheck(c,'fail','管徑 '+fmt(Dmm,1)+' mm 小於規範規定的排水管最小管徑 30 mm（§4.1.2）。');
+      addCheck(c,'info','以上三條出自《建築物給水排水設備設計技術規範》，適用<b>建築物排水管</b>。基地內雨水下水道、道路側溝或場區排水另有各該主管機關規定，不套用本節。');
     }
-    if(state.solveFor==='r' && res.roots && res.roots.roots.length>1){
+
+    /* 多重根（目前只有圓管會發生，但檢查不限定斷面，以免未來新增斷面時漏掉） */
+    if(state.solveFor==='depth' && res.roots && res.roots.roots.length>1){
       const rs = res.roots.roots.map(x=>fmt(x*100,1)+'%').join('、');
-      addCheck(c,'warn','此目標值有 <b>'+res.roots.roots.length+' 個解</b>：'+rs+'。因為圓管的 '+(state.knownMode==='Q'?'流量在 r≈93.8%':'流速在 r≈81.3%')+' 達到極大後回落，同一數值在極大值兩側各有一解。上方顯示的是較小者（正常設計解）；較大者屬接近滿管的不穩定區，實務上不採用。');
+      addCheck(c,'warn','此目標值有 <b>'+res.roots.roots.length+' 個解</b>（水深比）：'+rs+'。'+
+        (isPipe()
+          ? '因為圓管的'+(state.knownMode==='Q'?'流量在充滿度約 93.8%':'流速在充滿度約 81.3%')+
+            '達到最大後回落，同一數值在最大值兩側各有一解。上方顯示較小者（正常設計解）；較大者屬接近滿管的不穩定區，實務上不採用。'
+          : '本斷面的容量曲線在此區間非單調，同一目標值對應多個水深。上方顯示最小者，其餘請自行判斷是否為合理的設計點。'));
     }
-    if(rFrac > 0.94) addCheck(c,'warn','充滿度 >94% 已進入 Q(r) 曲線的下降段，此區間水位微幅變動就會造成流況不穩（時而滿管時而明渠），設計上應避免。');
-    if(rFrac > 0 && rFrac < 0.1) addCheck(c,'warn','充滿度 <10% 時 Manning 公式精度明顯下降（濕周相對過大、水膜效應顯著），此區間的計算結果僅供參考。');
-    if(state.solveFor==='D'){
-      const std = nextStandard(sizes, res.D);
-      if(std!==null){
-        const g2 = CALC.geom(std/1000, rFrac), V2 = CALC.V(std/1000, rFrac, n_, S_);
-        addCheck(c,'info','採用標準管徑 '+fmt(std,0)+' mm 後（同充滿度、同坡度）：V = '+fmt(V2,3)+' m/s、Q = '+fmt(g2.A*V2*1000,2)+' L/s。管徑放大後流速會上升、實際充滿度會下降，建議回頭用「解 r」模式以標準管徑與目標流量再核一次。');
+
+    /* 圓管：極端充滿度 */
+    if(isPipe()){
+      if(res.r > 0.94) addCheck(c,'warn','充滿度 &gt;94% 已進入流量曲線的下降段，此區水位微幅變動就會讓流況在滿管與明渠之間跳動，設計上應避開。');
+      if(res.r > 0 && res.r < 0.1) addCheck(c,'warn','充滿度 &lt;10% 時 Manning 精度明顯下降（濕周相對過大、水膜效應顯著），此區的計算結果僅供參考。');
+    }
+
+    /* 反解出來的 n 是否落在真實材質範圍內 */
+    if(state.solveFor==='n' && isFinite(res.n)){
+      const lo = 0.008, hi = 0.15;
+      if(res.n < lo || res.n > hi){
+        addCheck(c,'warn','反解出的 n ＝ '+res.n.toFixed(4)+' 落在實務材質範圍（約 '+lo+' ~ '+hi+'）之外。'+
+          '這通常代表<b>目標流量或流速與斷面尺寸不相稱</b> — 例如拿小管的流量去套大溝的斷面。請先確認其他欄位。');
+      }
+    }
+
+    /* 尺寸取整 */
+    if(state.solveFor==='size'){
+      const std = nextStandard(sizes, res.size);
+      const kName = isPipe() ? '管徑' : '溝寬';
+      if(res.size < 1){
+        addCheck(c,'warn','解出的'+kName+'趨近於 0'+(state.shape==='trap'?'（等於純三角形斷面）':'')+
+          '，代表<b>光靠現有的水深與坡度就已經超過目標值</b>，這個目標對此斷面沒有形成限制。'+
+          '請改用「解'+sec().depthName+'」或「解流量 Q」確認實際的設計點。此時不建議直接查標準尺寸表。');
+      } else if(std!==null){
+        /* 取整之後不是「同充滿度」，而是「同流量下水深自己重新找平衡」。
+           所以這裡重解一次水深，而不是拿 res.r 直接套到放大後的斷面上。 */
+        const dd = Object.assign({}, res.dims); dd[sec().sizeKey] = std;
+        const wantQ2 = state.knownMode==='Q';
+        const tgt2 = wantQ2 ? state.knownQ/1000 : state.knownV;
+        const s2 = CALC.solveDepth(state.shape, dd, nCap, SCap, tgt2, wantQ2);
+        if(s2.roots.length){
+          const r2 = s2.roots[0];
+          const g2 = SECTIONS[state.shape].geom(dd, r2);
+          const V2 = CALC.Vof(state.shape, dd, r2, nCap, SCap);
+          addCheck(c,'info','採用標準'+kName+' '+fmt(std,0)+' mm 後，在同坡度、同粗糙係數下要通過'+
+            (wantQ2 ? '目標流量 '+fmt(state.knownQ,2)+' L/s' : '目標流速 '+fmt(state.knownV,3)+' m/s')+
+            '，實際'+(isPipe()?'充滿度會降到 '+fmt(r2*100,1)+'%（水深 '+fmt(g2.y*1000,1)+' mm）'
+                              :'水深會降到 '+fmt(g2.y*1000,1)+' mm（溝深的 '+fmt(r2*100,1)+'%）')+
+            '，此時 V = '+fmt(V2,3)+' m/s、Q = '+fmt(g2.A*V2*1000,2)+' L/s。'+
+            '這是取整後的實際設計點，不是原本那個充滿度。');
+        } else {
+          addCheck(c,'warn','採用標準'+kName+' '+fmt(std,0)+' mm 後，在同坡度與粗糙係數下找不到能達成目標的水深，'+
+            '請改用「解'+sec().depthName+'」模式逐項確認。');
+        }
       } else {
-        addCheck(c,'fail','計算管徑 '+fmt(res.D,1)+' mm 超出標準管徑對照表，請擴充對照表或改採箱涵／多管並列。');
+        addCheck(c,'fail','計算'+kName+' '+fmt(res.size,1)+' mm 超出標準尺寸對照表，請擴充對照表，或改採'+(isPipe()?'箱涵／多管並列':'多溝並列／加深斷面')+'。');
       }
     }
   } else {
     addCheck(c,'fail', res.note || '目前條件無解。');
   }
 
-  /* Summary — 求解目標排第一，其餘三格不重複顯示同一個量 */
+  /* ── 摘要磚：求解目標排第一，其餘不重複顯示同一個量 ── */
   const tiles = [{k: t.lbl+' '+t.label, v: mainVal, u: mainUnit}];
-  if(state.solveFor!=='V') tiles.push({k:'流速 V',   v: res.V!=null?fmt(res.V,2):'—', u:'m/s'});
-  if(state.solveFor!=='Q') tiles.push({k:'流量 Q',   v: res.Q!=null?fmt(res.Q,1):'—', u:'L/s'});
-  if(state.solveFor!=='D') tiles.push({k:'管徑 D',   v: fmt(res.D,0), u:'mm'});
-  if(state.solveFor!=='r') tiles.push({k:'充滿度 r', v: fmt(rFrac*100,0), u:'%'});
+  if(state.solveFor!=='V') tiles.push({k:'流速 V', v: res.V!=null?fmt(res.V,2):'—', u:'m/s'});
+  if(state.solveFor!=='Q') tiles.push({k:'流量 Q', v: res.Q!=null?fmt(res.Q,1):'—', u:'L/s'});
+  if(state.solveFor!=='size') tiles.push({k:sec().sizeName+' '+sec().sizeSym, v: res.size!=null?fmt(res.size,0):'—', u:'mm'});
+  if(state.solveFor!=='depth') tiles.push(
+    isPipe() ? {k:'充滿度 r', v: res.r!=null?fmt(res.r*100,0):'—', u:'%'}
+             : {k:'水深 y', v: res.yMm!=null?fmt(res.yMm,0):'—', u:'mm'});
   tiles.push({k:'Q / Q<sub>full</sub>', v: fmt(Qfull>0&&res.Q!=null?res.Q/Qfull:NaN,2), u:''});
   $('summary').innerHTML = tiles.slice(0,4).map(x=>
     '<div class="sum-item"><div class="k">'+x.k+'</div><div class="v">'+x.v+'<span>'+x.u+'</span></div></div>').join('');
@@ -764,14 +1304,15 @@ function render(){
 
 function boot(){
   $('cfgVmin').value = state.vmin; $('cfgVmax').value = state.vmax;
-  $('cfgRmax').value = state.rmax; $('cfgUse').value = state.use;
-  $('cfgSizes').value = state.sizes;
+  $('cfgRmax').value = state.rmax; $('cfgFb').value = state.fb;
+  $('cfgUse').value = state.use;
+  $('cfgSizes').value = isPipe() ? state.sizes : state.sizesCh;
   buildInputs(); initTopbar(); render();
 }
 boot();
 
 /* 供 tests/verify.js 取用 */
-window.CALC = CALC; window.state = state; window.DEFAULTS = DEFAULTS;
+window.CALC = CALC; window.SECTIONS = SECTIONS; window.state = state; window.DEFAULTS = DEFAULTS;
 
 </script>
 </body>

@@ -164,7 +164,7 @@
 
   <div class="eyebrow">MEP // 排水工具 ・ HYD-02</div>
   <h1>雨水排水設計流量計算機</h1>
-  <p class="subtitle">合理化公式估算基地雨水逕流設計流量。與原版最大的不同：<b>降雨強度 I 綁定集流時間 t<sub>c</sub></b>（合理化公式的前提），並內建水土保持技術規範的官方降雨強度公式與出流管制初篩。</p>
+  <p class="subtitle">用合理化公式估算基地雨水逕流（降雨中沒有入滲、直接沿地表流走的那一部分）的設計流量。<b>降雨強度 I 與集流時間 t<sub>c</sub> 連動</b>，這是合理化公式的成立前提。內建《水土保持技術規範》的官方降雨強度公式與出流管制初篩。</p>
 
   <div class="notice">
     <span aria-hidden="true">⚠️</span>
@@ -181,7 +181,7 @@
   <!-- STEP 1 -->
   <div class="step">
     <div class="step-head"><span class="step-num">①</span><h2>集水面積與逕流係數 C</h2></div>
-    <div class="step-sub">逕流係數採面積加權平均。開發後的 C 值若明顯高於開發前，多數縣市會要求提出流管制（見⑤）。</div>
+    <div class="step-sub">逕流係數 C 是「降雨量有多少比例變成地表逕流」的比值：屋頂與鋪面接近 1.0，草地與裸露地遠低於此。多種地表並存時採面積加權平均。開發後的 C 值若明顯高於開發前，多數縣市會要求提出流管制（見⑤）。</div>
     <div class="formula-line">C = Σ(C<sub>i</sub> × A<sub>i</sub>) ÷ ΣA<sub>i</sub></div>
     <div class="table-scroll">
       <table class="rows-table">
@@ -201,7 +201,7 @@
   <!-- STEP 2 -->
   <div class="step">
     <div class="step-head"><span class="step-num">②</span><h2>集流時間 t<sub>c</sub></h2></div>
-    <div class="step-sub">合理化公式的降雨延時<b>必須等於集流時間</b> — 這是最常被忽略的一步。原版工具把 t 當成一個可以隨便填的參數，會直接算出錯誤的 I。t<sub>c</sub> = 漫地流時間 t₁ + 流下時間 t₂。</div>
+    <div class="step-sub">集流時間 t<sub>c</sub> 指雨水從集水區<b>最遠一點</b>流到出口所需的時間。合理化公式的降雨延時<b>必須等於 t<sub>c</sub></b>：只有降雨持續到整個集水區都對出口有貢獻，尖峰流量才會出現。t 若當成可自由填寫的參數，算出來的 I 就是錯的。t<sub>c</sub> ＝ 漫地流時間 t₁ ＋ 流下時間 t₂。</div>
     <div class="toggle-pair">
       <button id="tcManual" type="button">直接輸入 t<sub>c</sub></button>
       <button id="tcSwcb" type="button">水保規範式（漫地流 + 芮哈公式）</button>
@@ -349,21 +349,33 @@ function nextStandard(list, value){
 }
 
 /* 綁定數字/文字輸入：不重建 DOM，因此不會失焦。
-   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。 */
+   commit(value, el) 由呼叫端決定要寫進 state 的哪裡。
+
+   數字欄位在「空白或還沒打完」（parseFloat 得不到有限值）時**完全不寫 state**，
+   只讓輸入框維持使用者正在打的字。這樣把欄位清空不會把 state 換成 fallback
+   值 —— 舊寫法在清空坡度欄位時會把 S_denom 直接變成 1，計算結果瞬間跳掉，
+   失焦後又把那個 1 填回欄位，使用者原本的數值就永久消失了。 */
 function bindInput(el, getter, commit, opts){
   if(!el) return;
   opts = opts || {};
   el.value = getter();
   el.addEventListener('input', ()=>{
-    commit(el.type==='number' ? num(el.value, NaN) : el.value, el);
+    if(el.type === 'number'){
+      const raw = num(el.value, NaN);
+      if(!isFinite(raw)) return;        // 空白／半成品：保留 state，等 blur 再正規化
+      commit(raw, el);
+    } else {
+      commit(el.value, el);
+    }
     if(opts.markDirty) el.classList.add('dirty');
     render();
   });
-  /* 失焦時才做正規化（把 NaN/空白補回上一個有效值），避免打字打到一半被改掉 */
+  /* 失焦時才做正規化：把空白補回 state 裡現存的有效值 */
   el.addEventListener('blur', ()=>{
     const v = getter();
     if(el.type==='number' && (el.value==='' || !isFinite(num(el.value,NaN)))){
       el.value = (v===null||v===undefined||!isFinite(v)) ? '' : v;
+      render();
     }
   });
 }
