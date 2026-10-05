@@ -4,3 +4,7 @@ node_modules/
 *.log
 .vscode/
 .idea/
+
+# 業主設計基準與機密對照只放本機
+*.local.json
+private/

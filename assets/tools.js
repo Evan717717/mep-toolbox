@@ -65,4 +65,14 @@ window.TOOLS = [
     status: 'live',
     updated: '2026-08-18',
   },
+  {
+    id: 'HYD-05',
+    name: 'AIDC 給水設計工作台',
+    path: 'tools/aidc-water-workbench/',
+    summary: '資料中心給水的一站式工作台：白話問答輸入，算出一日設計用水量、進水口徑、生活／空調分開的水池容量、分區泵浦與補給水水質判定。一鍵切換台灣／美國 IPC／新加坡（歐洲與東南亞預覽），每個數字可展開算式與出處，並匯出 A4、Word 與含活公式的 Excel 計算書。',
+    formula: 'Vd → Di · 儲水 · TDH · COCmax',
+    tags: ['水力', '給水', '資料中心'],
+    status: 'beta',
+    updated: '2026-10-05',
+  },
 ];
