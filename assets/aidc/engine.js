@@ -250,6 +250,7 @@
         }
       });
       if (dom.flushValve === true) valve = true; if (dom.flushValve === false) valve = false;
+      res.wsfuTot = wsfu; res.valveSys = valve;
       T.step('wsfu', '給水器具單位 ΣWSFU', wsfu, 'WSFU', { f: 'Σ 數量 × WSFU（Table E103.3(2)）', sub: terms.join(' + ') || '0', src: 'ipc_e', xl: xls.length ? '=' + xls.join('+') : '=0' });
       const gpm = U.hunter(wsfu, valve);
       T.table('hunter_x', HUNTER.wsfu);
@@ -392,6 +393,7 @@
     const resGen = P('resGeneral'), resFV = P('resFlushValve');
     const flushValveSys = !!dom.flushValve || (dom.fixtures && (U.num(dom.fixtures.wc_fv, 0) + U.num(dom.fixtures.ur_fv1, 0) + U.num(dom.fixtures.ur_fv3, 0)) > 0);
     res.pumps = [];
+    const ng = (inp.net && inp.net.enable !== false) ? (() => { const nt = inp.net; const N = Math.max(1, Math.min(60, Math.round(U.num(nt.floors, 4)))), fh = U.num(nt.floorH, 5), th = U.num(nt.termH, 1.2); return { N, zTank: -U.num(nt.basement, 6), zTm: k => (k - 1) * fh + th, zRoof: N * fh }; })() : null;
     (inp.pumps || []).forEach((z, i) => {
       const id = 'z' + i, nm = z.name || `泵組 ${i + 1}`;
       let Qlpm;
@@ -406,9 +408,13 @@
       } else {
         Qlpm = T.input(id + '_q', `${nm}：設計流量（使用者輸入）`, U.num(z.qLpm, 0), 'L/min', 'user');
       }
-      const Hs = T.input(id + '_hs', `${nm}：靜揚程（高低差）`, U.num(z.static, 0), 'm', 'user');
+      const hsBlank = z.static === null || z.static === undefined || z.static === '';
+      const autoHs = (hsBlank && ng) ? (z.kind === 'hvac' ? ng.zRoof - ng.zTank : z.kind === 'domestic' ? ng.zTm(ng.N) - ng.zTank : null) : null;
+      const Hs = autoHs !== null
+        ? T.step(id + '_hs', `${nm}：靜揚程（高低差，由系統昇位自動帶入）`, autoHs, 'm', { f: z.kind === 'hvac' ? '= 屋頂補水點標高 − 泵房底標高' : '= 頂層末端標高 − 泵房底標高', sub: z.kind === 'hvac' ? `${ng.zRoof} − (${ng.zTank})` : `${ng.zTm(ng.N)} − (${ng.zTank})`, src: 'phys', note: '於「6c 系統昇位與管徑」設定樓層高度；也可在泵組表直接輸入靜揚程覆蓋' })
+        : T.input(id + '_hs', `${nm}：靜揚程（高低差）`, U.num(z.static, 0), 'm', 'user');
       const L = T.input(id + '_l', `${nm}：管線長度`, U.num(z.length, 0), 'm', 'user');
-      let res_m = U.num(z.residual, NaN);
+      let res_m = (z.residual === null || z.residual === undefined || z.residual === '') ? NaN : U.num(z.residual, NaN);
       let resSrc = 'user';
       if (!isFinite(res_m)) {
         if (z.kind === 'domestic') { res_m = flushValveSys ? resFV : resGen; resSrc = flushValveSys ? used.resFlushValve.src : used.resGeneral.src; }
@@ -467,9 +473,14 @@
       res.twHead = { H: Htot };
     }
 
+    /* ──────── 6c. 系統昇位與管徑（System Flow）──────── */
+    if (inp.net && inp.net.enable !== false) {
+      res.net = buildNet(inp, { T, P, used, region, cat, qpDom, coolMaxHour, Vd, res, vmax, gradMax, C, fit, pmax, resGen, resFV, flushValveSys, dom });
+    }
+
     /* ──────── 7. 水質 ──────── */
     T.section('7 水質判定');
-    res.wq = evaluateWQ(inp.wq || {}, region, P, used, evaporative ? U.num(c.coc, 3) : null, T, owner);
+    res.wq = evaluateWQ(inp.wq || {}, region, P, used, evaporative ? U.num(c.coc, 3) : null, T, owner, { evaporative, coolType: c.type, humid: U.num(c.humidDaily, 0), region });
 
     /* ──────── 業主基準衝突 ──────── */
     conflicts.forEach(cf => {
@@ -484,8 +495,127 @@
     return res;
   }
 
+
+  /* ═════════════ 系統昇位與管徑：由引入管到末端器具 ═════════════
+   * 管段分四級：引入／幹管（市水→水池→泵→立管底）→ 立管（逐層遞減）→ 層內橫支管 → 末端器具接管
+   * 管徑一律「流速上限」與「摩擦梯度上限」取大者，再取管材表中內徑 ≥ 需求的最小管（與泵浦表同一套規則）。
+   * 立管與橫支管流量：Hunter（WSFU 累計 → Table E103.3(3)）；無 Hunter 的區域以各層負荷占比分配生活尖峰。
+   * 器具末端接管：不以瞬時流量放大，採「最小口徑」規則（工程慣用，標示假設，須依器具廠商與當地規範覆核）。 */
+  function buildNet(inp, X) {
+    const { T, P, used, region, cat, qpDom, coolMaxHour, Vd, res, vmax, gradMax, C, fit, pmax } = X;
+    const nt = inp.net;
+    const N = Math.max(1, Math.min(60, Math.round(U.num(nt.floors, 4))));
+    const floorH = U.num(nt.floorH, 5), basement = U.num(nt.basement, 6), termH = U.num(nt.termH, 1.2);
+    const lenMain = U.num(nt.lenMain, 50), lenHdr = U.num(nt.lenHdr, 30), lenBr = U.num(nt.lenBranch, 35), lenTerm = U.num(nt.lenTerm, 8);
+    T.section('6c 系統昇位與管徑');
+    T.input('net_n', '服務樓層數', N, '層', 'user', '生活立管服務的地上樓層；器具與負荷假設各層均分');
+    T.input('net_fh', '樓層高度', floorH, 'm', 'user');
+    T.input('net_bs', '泵房／水池底標高（地下）', -basement, 'm', 'user', '地面層 ±0.00 為基準');
+    T.input('net_th', '末端器具接管高度（距樓板）', termH, 'm', 'user');
+    const minB = P('minBranchDN'), minF = P('minFlushDN');
+    T.input('net_minb', '器具接管最小口徑 DN', minB, 'mm', used.minBranchDN.src, used.minBranchDN.note);
+    T.input('net_minf', '沖水閥接管最小口徑 DN', minF, 'mm', used.minFlushDN.src, used.minFlushDN.note);
+    const zTank = -basement, zFl = k => (k - 1) * floorH, zTm = k => zFl(k) + termH, zRoof = N * floorH;
+    const hunterSys = region.method.peak === 'hunter';
+    const wsfuTot = res.wsfuTot || 0, valveSys = !!res.valveSys;
+    const floorQ = cnt => hunterSys ? U.hunter(wsfuTot * cnt / N, valveSys) * GPM : qpDom * cnt / N;
+    const lastRow = cat.rows[cat.rows.length - 1];
+    const rowByDN = dn => cat.rows.find(r => r.dn >= dn - 1e-9) || lastRow;
+    const segs = [];
+    function seg(o) {
+      // o: id, name, kind, from, to, Q, L, rule('size'|'fixed'|'min'), minDN, fixedPipe, z0, z1, basis
+      const Q = o.Q, L = o.L || 0, has = Q !== null && Q !== undefined;
+      const Qs = has ? Q / 60000 : 0;
+      const dV = Qs > 0 ? 1000 * Math.sqrt(4 * Qs / (Math.PI * vmax)) : 0;
+      const dG = (Qs > 0 && gradMax > 0) ? 1000 * Math.pow(10.67 * Math.pow(Qs, 1.852) / (Math.pow(C, 1.852) * gradMax / 100), 1 / 4.87) : 0;
+      const dreq = Math.max(dV, dG);
+      let pipe, minID = null;
+      if (o.rule === 'fixed') pipe = o.fixedPipe;
+      else if (o.rule === 'min') pipe = rowByDN(o.minDN), minID = pipe.id;
+      else {
+        pipe = cat.rows.find(r => r.id >= dreq - 1e-9) || lastRow;
+        if (o.minDN) { const m = rowByDN(o.minDN); minID = m.id; if (m.id > pipe.id) pipe = m; }
+      }
+      const ID = pipe.id;
+      const v = (Qs > 0) ? Qs / (Math.PI / 4 * Math.pow(ID / 1000, 2)) : null;
+      const Leq = L * (1 + fit / 100);
+      const hf = (Qs > 0 && L > 0) ? U.hw(Qs, ID / 1000, Leq, C) : 0;
+      const S = Leq > 0 ? hf / Leq * 100 : 0;
+      const s = { id: o.id, name: o.name, kind: o.kind, from: o.from, to: o.to, Q: has ? Q : null, L, rule: o.rule || 'size', minDN: o.minDN || null, minID,
+        dreq: has ? dreq : null, pipe: pipe.name, dn: pipe.dn, ID, v, hf, S, z0: o.z0, z1: o.z1, basis: o.basis || '' };
+      segs.push(s); return s;
+    }
+    /* ① 市水引入管 */
+    const twSvc = region.method.service === 'twc_di';
+    const qSvc = twSvc ? Vd * 1000 / 1440 : (res.index && res.index.svc_q ? res.index.svc_q.v : qpDom + coolMaxHour * 1000 / 60);
+    const svc = twSvc
+      ? seg({ id: 'S1', name: '市水引入管', kind: 'service', from: '市水主管／水表', to: '受水池', Q: qSvc, L: lenMain, rule: 'fixed', fixedPipe: rowByDN(res.service.adopt), z0: 0, z1: zTank, basis: '台水 Di = 4.59√Vd（24 h 均勻進水）取標準口徑' })
+      : seg({ id: 'S1', name: '市水引入管', kind: 'service', from: '市水主管／水表', to: '受水池', Q: qSvc, L: lenMain, z0: 0, z1: zTank, basis: '生活尖峰 + 空調補水最大時；流速／梯度雙條件' });
+    /* ② 泵出口幹管 */
+    const pumps = res.pumps || [];
+    const domP = pumps.find(p => p.kind === 'domestic'), hvP = pumps.find(p => p.kind === 'hvac');
+    pumps.forEach((p, i) => { if (p.Qlpm > 0) seg({ id: 'M' + (i + 1), name: `${p.name} 泵出口幹管`, kind: 'main', from: `P-${String(i + 1).padStart(2, '0')}`, to: p.kind === 'hvac' ? '空調補水立管底' : '生活立管底', Q: p.Qlpm, L: lenHdr, z0: zTank, z1: zTank, basis: '泵組設計流量' }); });
+    /* ③ 生活立管（逐層遞減）與層內橫支管 */
+    const riserQ0 = domP ? domP.Qlpm : floorQ(N);
+    if (riserQ0 > 0) {
+      seg({ id: 'R0', name: '生活立管 底—1F', kind: 'riser', from: '立管底', to: '1F 分歧', Q: floorQ(N), L: Math.max(0, zFl(1) - zTank), z0: zTank, z1: zFl(1), basis: hunterSys ? `${N} 層 ΣWSFU ${(wsfuTot).toFixed(1)} → Hunter` : `${N} 層全部生活尖峰` });
+      for (let k = 1; k < N; k++) {
+        const cnt = N - k;
+        seg({ id: 'R' + k, name: `生活立管 ${k}F—${k + 1}F`, kind: 'riser', from: `${k}F 分歧`, to: `${k + 1}F 分歧`, Q: floorQ(cnt), L: floorH, z0: zFl(k), z1: zFl(k + 1), basis: hunterSys ? `${k + 1}F 以上 ${cnt} 層 ΣWSFU ${(wsfuTot * cnt / N).toFixed(1)} → Hunter` : `${k + 1}F 以上 ${cnt}/${N} 層負荷` });
+      }
+      for (let k = 1; k <= N; k++) seg({ id: 'B' + k, name: `${k}F 層內橫支管`, kind: 'branch', from: `${k}F 分歧`, to: `${k}F 最遠器具群`, Q: floorQ(1), L: lenBr, minDN: minB, z0: zTm(k), z1: zTm(k), basis: hunterSys ? `單層 ΣWSFU ${(wsfuTot / N).toFixed(1)} → Hunter` : '單層負荷占比' });
+      /* ④ 末端器具接管 */
+      if (hunterSys) {
+        FIXTURES_IPC.forEach(F => { const n = U.num((inp.domestic.fixtures || {})[F.key], 0); if (n > 0) seg({ id: 'T-' + F.key, name: `末端接管：${F.label}`, kind: 'terminal', from: '層內橫支管', to: '器具', Q: U.hunter(F.wsfu, !!F.valve) * GPM, L: lenTerm, rule: 'min', minDN: F.valve ? minF : minB, z0: zTm(1), z1: zTm(1), basis: `單一器具 ${F.wsfu} WSFU；採最小口徑規則（${F.valve ? '沖水閥' : '一般器具'}）` }); });
+      } else {
+        seg({ id: 'T-gen', name: '末端接管：一般水栓／洗面盆', kind: 'terminal', from: '層內橫支管', to: '器具', Q: null, L: lenTerm, rule: 'min', minDN: minB, z0: zTm(1), z1: zTm(1), basis: '最小口徑規則（工程慣用）' });
+        seg({ id: 'T-fv', name: '末端接管：沖水閥', kind: 'terminal', from: '層內橫支管', to: '器具', Q: null, L: lenTerm, rule: 'min', minDN: minF, z0: zTm(1), z1: zTm(1), basis: '最小口徑規則（沖水閥 1 吋）' });
+      }
+    }
+    /* ⑤ 空調補水立管到屋頂 */
+    if (hvP && hvP.Qlpm > 0 && nt.roofHvac !== false) {
+      const hi = pumps.indexOf(hvP);
+      seg({ id: 'H1', name: '空調補水立管（至屋頂冷卻塔集水盤）', kind: 'riser', from: '空調補水立管底', to: '屋頂補水點', Q: hvP.Qlpm, L: zRoof - zTank, z0: zTank, z1: zRoof, basis: '空調補水最大時流量（全程同流量）' });
+    }
+    /* ⑥ 壓力剖面：以生活泵揚程與網路實際管長推算各樓層末端可用壓力 */
+    const profile = [];
+    let chk = null;
+    if (domP && riserQ0 > 0) {
+      const get = id => segs.find(s => s.id === id);
+      const hdrIdx = pumps.indexOf(domP) + 1, hdr = get('M' + hdrIdx);
+      let cum = hdr ? hdr.hf : 0;
+      const term = segs.find(s => s.kind === 'terminal');
+      const termHf = term ? term.hf : 0;
+      for (let k = 1; k <= N; k++) {
+        cum += (get('R' + (k - 1)) || { hf: 0 }).hf;       // R0 … R(k-1)
+        const pathHf = cum + get('B' + k).hf + termHf;
+        profile.push({ floor: k, z: zTm(k), hf: pathHf, avail: domP.H - (zTm(k) - zTank) - pathHf });
+      }
+      const top = profile[N - 1], low = profile[0];
+      T.step('net_zrise', '最高末端相對泵房昇位', zTm(N) - zTank, 'm', { f: 'Δz = 頂層末端標高 − 泵房底標高', sub: `${zTm(N).toFixed(2)} − (${zTank.toFixed(2)})`, src: 'phys', note: '與泵浦表的「靜揚程」比對' });
+      T.step('net_hf_top', '最遠末端路徑摩擦損失（網路實算）', top.hf, 'm', { f: 'Σ 幹管 + 立管各段 + 頂層橫支管 + 末端接管之 hf（Hazen-Williams）', sub: segs.filter(s => s.kind !== 'service').length + ' 管段，見管徑表', src: 'hw' });
+      T.step('net_avail_top', '頂層末端可用壓力', top.avail, 'm', { f: 'H泵 − Δz − 路徑摩擦損失', sub: `${domP.H.toFixed(2)} − ${(zTm(N) - zTank).toFixed(2)} − ${top.hf.toFixed(2)}`, src: 'phys', note: `需求 ${domP.res.toFixed(1)} m` });
+      const need = domP.res;
+      if (top.avail + 1e-9 < need) T.check('fail', `頂層末端可用壓力 ${top.avail.toFixed(1)} m 低於所需 ${need.toFixed(1)} m：泵浦靜揚程（${domP.Hs} m）低於最高末端昇位 ${(zTm(N) - zTank).toFixed(1)} m，或網路摩擦損失大於泵浦表假設，請提高泵浦揚程或調整管徑。`, 'phys');
+      else T.check('pass', `頂層末端可用壓力 ${top.avail.toFixed(1)} m ≥ 所需 ${need.toFixed(1)} m（依網路實際昇位與管長）。`, 'phys');
+      if (domP.Hs + 0.5 < zTm(N) - zTank) T.check('warn', `泵浦表靜揚程 ${domP.Hs} m 小於系統最高末端昇位 ${(zTm(N) - zTank).toFixed(1)} m，請確認泵浦表的高低差輸入。`, 'phys');
+      if (pmax) {
+        const stat1 = domP.H - (zTm(1) - zTank);
+        if (stat1 > pmax) T.check('warn', `低層（1F）末端靜壓約 ${stat1.toFixed(1)} m，超過 ${pmax} m（80 psi）：須設減壓閥或分區（IPC §604.8）。`, 'ipc_604');
+      }
+      chk = { top, low, need };
+    } else if (riserQ0 > 0) T.check('info', '未設生活泵組，略過壓力剖面；管徑仍依流量計算。', 'assume');
+    const bad = segs.filter(s => s.kind !== 'terminal' && s.v !== null && s.v > vmax + 1e-9);
+    bad.forEach(s => T.check('fail', `管段 ${s.id}「${s.name}」流速 ${s.v.toFixed(2)} m/s 超過上限 ${vmax} m/s（已達管材表最大管徑）。`, used.vMax.src));
+    segs.filter(s => s.kind !== 'terminal' && gradMax && s.S > gradMax + 1e-6).forEach(s => T.check('warn', `管段 ${s.id}「${s.name}」摩擦梯度 ${s.S.toFixed(2)} m/100m 超過上限 ${gradMax}（受最小口徑規則控制）。`, used.gradMax.src));
+    T.check('info', 'System Flow 管徑規則：流速上限與摩擦梯度上限取大者→取管材表最小可用管；立管／橫支管流量採 Hunter 或負荷占比（各層均分）；器具末端接管採最小口徑規則。這是 30% 基礎設計階段的管徑，細部設計須以實際器具配置與廠商資料複核。', 'hw');
+    return { N, floorH, basement, termH, zTank, zRoof, segs, profile, check: chk, hunter: hunterSys, cat: cat.label, catSrc: cat.src, vmax, gradMax, C, fit, roofHvac: !!segs.find(s => s.id === 'H1'),
+      pumpNames: pumps.map(p => p.name), hasDomPump: !!domP };
+  }
+
   /* ═════════════ 水質：補給水適用性與可達濃縮倍數 ═════════════ */
-  function evaluateWQ(w, region, P, used, designCOC, T, owner) {
+  function evaluateWQ(w, region, P, used, designCOC, T, owner, ctx) {
+    ctx = ctx || {};
     const out = { items: [], cocMax: null, governing: null, actions: [] };
     const val = k => (w[k] === null || w[k] === undefined || w[k] === '' ? null : Number(w[k]));
     let ec = val('ec'); let ecEst = false;
@@ -545,8 +675,109 @@
       T.check('info', '非蒸發式散熱：水質重點在系統充水（TCS／設施水迴路）與加濕器；充水水質依 CDU／冷卻液廠商與空調組規範（空調組 SCOPE）。', 'assume');
     }
     if (owner && owner.tcsFluid) out.tcs = owner.tcsFluid;
+    Object.assign(out, treatmentPlan(out, val, ec, pot, potKey, designCOC, owner, ctx));
     return out;
   }
+
+
+  /* ═════════════ 水質規範書：各用途比對 → 水處理設備報價提醒 ═════════════
+   * 每個用途（飲用／冷卻塔補水／FWS／TCS／加濕）各自比對原水與其基準；
+   * 依比對結果列出「報價時須編列／建議編列／請廠商確認／不需要」的水處理設備與系統。
+   * 觸發條件只用已登錄出處的基準值；沒有數值依據的項目一律標為「請廠商確認」，不替廠商下結論。 */
+  const fmtLim = l => Array.isArray(l) ? `${l[0]}~${l[1]}` : `≤ ${l}`;
+  const inLim = (l, x) => Array.isArray(l) ? (x >= l[0] && x <= l[1]) : x <= l;
+  function treatmentPlan(out, val, ec, pot, potKey, designCOC, owner, ctx) {
+    const raw = { ph: val('ph'), ec, tds: val('tds'), hard: val('hard'), alk: val('alk'), cl: val('cl'), so4: val('so4'), sio2: val('sio2'), turb: val('turb') };
+    const known = Object.keys(raw).filter(k => raw[k] !== null && isFinite(raw[k]));
+    const label = {}; WQ.params.forEach(p => { label[p[0]] = p; });
+    const ownerL = (owner && owner.wqLimits) || {};
+    function evalSet(limits, extra) {
+      const rows = [];
+      Object.keys(limits).forEach(k => {
+        if (k === 'src' || !label[k]) return;
+        const x = raw[k];
+        const r = { k, label: label[k][1], unit: label[k][2], limit: fmtLim(limits[k]), v: (x === null || !isFinite(x)) ? null : x };
+        r.ok = r.v === null ? null : inLim(limits[k], r.v);
+        if (extra && extra[k] !== undefined) { r.ownerLimit = fmtLim(extra[k]); r.ownerOk = r.v === null ? null : inLim(extra[k], r.v); }
+        rows.push(r);
+      });
+      // 只在業主有、基準表沒有的參數補列
+      if (extra) Object.keys(extra).forEach(k => { if (k === 'src' || k === 'note' || !label[k] || rows.find(r => r.k === k)) return; const x = raw[k]; rows.push({ k, label: label[k][1], unit: label[k][2], limit: '—', v: x === null || !isFinite(x) ? null : x, ok: null, ownerLimit: fmtLim(extra[k]), ownerOk: x === null || !isFinite(x) ? null : inLim(extra[k], x) }); });
+      const exceed = rows.filter(r => r.ok === false || r.ownerOk === false);
+      return { rows, exceed, unknown: rows.filter(r => r.v === null) };
+    }
+    const hasVal = known.length > 0;
+    const systems = [];
+    systems.push({ key: 'potable', label: '生活／飲用水回路', src: [pot.src], basis: `${region_label(ctx)} 飲用水基準`, ...evalSet(pot, ownerL.potable) });
+    if (ctx.evaporative) systems.push({ key: 'ct', label: '冷卻塔補給水（蒸發式）', src: ['jra_gl02'], basis: 'JRA-GL02 補給水基準（不加藥）', ...evalSet(WQ.jra_makeup, ownerL.ct) });
+    systems.push({ key: 'fws', label: '一次側／冷卻水迴路充水（FWS）', src: ['ashrae_td99'], basis: 'ASHRAE TC 9.9 設施水 FWS 建議值', ...evalSet(WQ.ashrae_fws, ownerL.fws) });
+    systems.push({ key: 'tcs', label: '液冷二次側 TCS 充水', src: owner && ownerL.tcs ? ['ashrae_td99', 'owner'] : ['ashrae_td99'], basis: 'ASHRAE TC 9.9 二次側 TCS 建議值' + (ownerL.tcs ? ' ＋ 業主基準' : ''), ...evalSet(WQ.ashrae_tcs, ownerL.tcs) });
+    if (ctx.humid > 0) systems.push({ key: 'humid', label: '加濕器（蒸發式濕膜）補水', src: ['assume'], basis: '無通用數值基準，依加濕設備廠商規格', rows: [], exceed: [], unknown: [] });
+    const S = k => systems.find(x => x.key === k);
+    const ex = (sys, ks) => sys && sys.exceed.filter(r => ks.includes(r.k));
+    const fm = r => `${r.label} ${r.v}${r.unit ? ' ' + r.unit : ''}（基準 ${r.ownerOk === false ? r.ownerLimit : r.limit}）`;
+    const A = out.actions || [];
+    const aHard = A.find(a => a.param.startsWith('總硬度')), aAlk = A.find(a => a.param.startsWith('總鹼度'));
+    const aSalt = A.filter(a => /氯鹽|硫酸鹽|導電度/.test(a.param));
+    const plan = [];
+    const add = (key, name, level, reasons, src, scope) => plan.push({ key, name, level, reason: reasons.length ? reasons.join('；') : '', src: [].concat(src), scope: scope || '' });
+    const lv = { required: '必須編列', likely: '建議編列', confirm: '請廠商確認', none: '不需要' };
+
+    /* 前處理過濾 */
+    const turbLim = Array.isArray(pot.turb) ? pot.turb[1] : (pot.turb || 5);
+    if (raw.turb === null) add('filter', '前處理過濾（多介質／濾網）', 'confirm', ['未提供濁度，無法判定；請提供原水濁度與懸浮物資料'], 'assume');
+    else if (raw.turb > turbLim) add('filter', '前處理過濾（多介質／濾網）', 'likely', [`濁度 ${raw.turb} NTU 超過飲用水基準 ${turbLim} NTU`], pot.src);
+    else add('filter', '前處理過濾（多介質／濾網）', 'none', [`濁度 ${raw.turb} NTU ≤ ${turbLim} NTU；仍須管路入口基本濾網`], pot.src);
+
+    /* 軟化 */
+    const r1 = [];
+    if (aHard) r1.push(`冷卻塔設計 COC ${designCOC} 超過硬度可達 ${fmt2(aHard.cocMax)}（硬度為限制項）`);
+    else if (ctx.evaporative && raw.hard !== null && raw.hard > WQ.jra_makeup.hard) r1.push(`硬度 ${raw.hard} mg/L 高於 JRA 補給水基準 ${WQ.jra_makeup.hard}，但設計 COC 在可達範圍內`);
+    const fwsHard = ex(S('fws'), ['hard']);
+    if (fwsHard && fwsHard.length) r1.push('FWS 充水：' + fm(fwsHard[0]));
+    add('softener', '軟水設備（離子交換）或阻垢方案', aHard || (fwsHard && fwsHard.length) ? 'likely' : (r1.length ? 'confirm' : (raw.hard === null ? 'confirm' : 'none')), r1.length ? r1 : (raw.hard === null ? ['未提供硬度'] : [`硬度 ${raw.hard} mg/L 未超過各回路基準`]), ['jra_gl02', 'ashrae_td99']);
+
+    /* RO */
+    const r2 = [];
+    aSalt.forEach(a => r2.push(`${a.param} 限制 COC ${fmt2(a.cocMax)} < 設計 COC ${designCOC}`));
+    if (aSalt.length) r2.push('氯鹽與硫酸鹽無法由軟化去除，只能 RO 或降低 COC');
+    const fwsSalt = ex(S('fws'), ['cl', 'so4']); if (fwsSalt && fwsSalt.length) fwsSalt.forEach(r => r2.push('FWS 充水：' + fm(r)));
+    add('ro', 'RO 逆滲透（補水或充水製備）', r2.length ? 'likely' : (aSalt.length === 0 && ctx.evaporative && raw.cl === null ? 'confirm' : 'none'), r2.length ? r2 : ['氯鹽、硫酸鹽未造成 COC 或 FWS 超標（TCS 充水另列）'], ['jra_gl02', 'ashrae_td99']);
+
+    /* TCS 充水製備 */
+    const tcs = S('tcs'); const tcsEx = tcs.exceed;
+    add('tcs_fill', '二次側 TCS 充水製備（RO ＋ 去離子／混床 ＋ 精密過濾）',
+      !hasVal ? 'confirm' : (tcsEx.length ? 'required' : 'likely'),
+      !hasVal ? ['未提供原水水質'] : (tcsEx.length ? [`原水對 TCS 基準超標 ${tcsEx.length} 項：` + tcsEx.slice(0, 4).map(fm).join('、')] : ['原水已符合所列 TCS 基準，仍須廠商確認冷卻液與充水規格']),
+      owner && ownerL.tcs ? ['ashrae_td99', 'owner'] : ['ashrae_td99']);
+    if (owner && owner.tcsFluid) add('tcs_fluid', '預混冷卻液（PG25）與 CDU 過濾', 'confirm', [owner.tcsFluid.summary || '依業主基準'], 'owner');
+    else add('tcs_fluid', '預混冷卻液與 CDU 過濾', 'confirm', ['依 CDU／冷卻液廠商與空調組規範（二次側不屬給排水範圍，報價時請確認由誰供應）'], 'assume');
+
+    /* 冷卻水加藥、排放控制、旁濾 */
+    if (ctx.evaporative) {
+      const over = out.cocMax !== null && designCOC > out.cocMax;
+      add('chem', '冷卻水化學處理（阻垢／防蝕／殺菌）', over || aAlk ? 'required' : 'likely',
+        over ? [`設計 COC ${designCOC} 高於未加藥可達 ${fmt2(out.cocMax)}（受 ${out.governing} 限制）：JRA-GL02 基準不再適用，須由水處理廠商以加藥方案保證`] : ['JRA 基準僅適用於「不加藥」；殺菌與微生物管理為通用做法，須編列'],
+        over ? ['jra_gl02'] : ['assume']);
+      add('bleed', '導電度連動排放控制（自動排放閥）', 'required', [`以 COC ${designCOC} 運轉須量測導電度並自動排放`], 'epa_ct');
+      add('sidestream', '旁濾系統（側流過濾）', ctx.coolType === 'open_ct' ? 'likely' : 'confirm', [ctx.coolType === 'open_ct' ? '開放式冷卻塔循環水直接接觸空氣，易累積粉塵與微生物，建議旁濾' : '是否需要旁濾由水處理廠商依場址空氣品質判定'], 'assume');
+    } else add('chem', '冷卻水化學處理', 'none', ['非蒸發式散熱，無冷卻塔補水系統；封閉迴路防蝕藥劑由空調組／冷卻液廠商規範'], 'assume');
+
+    /* 飲用水回路 */
+    const pe = S('potable').exceed;
+    add('potable', '飲用水回路：引入端處理', !hasVal ? 'confirm' : (pe.length ? 'likely' : 'none'),
+      !hasVal ? ['未提供原水水質'] : (pe.length ? pe.map(fm).concat(['原水不符飲用水基準：洽供水單位，必要時於引入端加裝處理']) : ['原水符合飲用水基準，不需另設']), pot.src);
+    if (ctx.humid > 0) add('humid', '加濕補水處理（軟化／RO）', 'confirm', [`加濕器補水 ${ctx.humid} m³/d；硬度${raw.hard === null ? '未提供' : ' ' + raw.hard + ' mg/L'}。濕膜結垢與礦物粉塵取決於設備廠商水質限值，請廠商提供並回覆是否需處理`], 'assume');
+    plan.forEach(p => { p.levelText = lv[p.level]; });
+    const compare = ['tw_potable', 'us_potable', 'eu_potable', 'sg_potable', 'my_potable', 'th_potable'].map(key => {
+      const L = WQ[key], u = WQ.uses.find(x => x.key === key);
+      const set = evalSet(L);
+      return { key, label: u ? u.label : key, region: u && u.region, src: L.src, rows: set.rows, exceed: set.exceed.length, checked: set.rows.filter(r => r.ok !== null).length };
+    });
+    return { systems, plan, compare, hasVal, levelText: lv };
+  }
+  const fmt2 = x => (isFinite(x) ? Number(x).toFixed(2) : '—');
+  const region_label = ctx => (ctx.region && ctx.region.label) || '';
 
   const API = { VERSION, run, U, evaluateWQ, makeParams, CONST: { G, CP, GPM, PSI_M, FT } };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

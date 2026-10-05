@@ -71,6 +71,23 @@
       full: 'Singapore Standard SS 636 Code of Practice for Water Services（全文需購買，未逐條查證）',
       url: '' },
 
+    /* ── 歐洲／東南亞 飲用水水質 ── */
+    eu_dwd: { tier: 'law', short: 'EU 飲用水指令 指標參數',
+      full: 'Council Directive 98/83/EC Annex I Part C 指標參數（氯鹽 250、硫酸鹽 250 mg/L、導電度 2,500 µS/cm@20°C、pH 6.5–9.5；無硬度與 TDS 數值）。Directive (EU) 2020/2184 為其修訂版，本表數值取自 98/83/EC 英國保留版全文，2020/2184 全文未逐字核對',
+      url: 'https://legislation.gov.uk/eudr/1998/83/annex/I/part/C/2020-12-31/data.xht' },
+    sg_pub: { tier: 'gov', short: 'PUB 飲用水水質 2023',
+      full: 'PUB Singapore, "SG Drinking Water Quality"（2023 年資料）：EPH Regulations 標準以 WHO 飲用水水質指引為基礎，表列 pH 6.5–9.5、濁度 ≤ 5 NTU；硬度、TDS、氯鹽、硫酸鹽等僅列監測值、無限值',
+      url: 'https://www.pub.gov.sg/-/media/PUB/PDF/SG-Drinking-Water-Quality.pdf' },
+    my_moh: { tier: 'gov', short: '馬來西亞 MOH 飲用水標準',
+      full: 'Ministry of Health Malaysia, Engineering Services Division《Piawaian Kualiti Air Minum》Table 2（淨水廠出水）：pH 6.5–9.0、濁度 5 NTU、TDS 1,000、總硬度 500、氯鹽 250、硫酸鹽 250 mg/L',
+      url: 'https://hq.moh.gov.my/engineering/images/perkhidmatan/kas/muat-turun/piawaian_kualiti_air_minum.pdf' },
+    th_moi: { tier: 'gov', short: '泰國 MOI 飲用水標準（舊）',
+      full: 'Thailand Ministry of Industry Notification No. 322 B.E. 2521 (1978)，經 WEPA 資料庫轉載：pH 6.5–8.5、濁度 5（SSU）、總固體 500、硬度 < 300、氯鹽 250、硫酸鹽 200。為 1978 年公告，是否為現行供水（MWA／PWA）規定未查證，只作參考',
+      url: 'https://wepa-db.net/archive/policies/law/thailand/std_drinking.htm' },
+    ashrae_td99: { tier: 'guide', short: 'ASHRAE TC 9.9 水冷伺服器白皮書',
+      full: 'ASHRAE TC 9.9 White Paper "Water-Cooled Servers" Table 1：設施水系統 FWS（pH 7–9、氯鹽 < 50、硫酸鹽 < 100、總硬度 < 200 mg/L、細菌 < 1,000 CFU/mL、濾網 400–500 µm）；二次側 TCS（pH 8.0–9.5、氯鹽 < 5、硫酸鹽 < 10、總硬度 < 20 mg/L、導電度 0.2–20 µS/cm、細菌 < 100 CFU/mL、絕對過濾）。版本年份未標示',
+      url: 'https://www.ashrae.org/File%20Library/Technical%20Resources/Bookstore/WhitePaper_TC099-WaterCooledServers.pdf' },
+
     /* ── 通用 / 資料中心 ── */
     epa_ct: { tier: 'gov', short: 'EPA WaterSense §6.3',
       full: 'US EPA, WaterSense at Work §6.3 Cooling Towers (2012)：蒸發量約為循環水量每 10°F 溫差 1%；Makeup = 蒸發 + 飛濺 + 排放；COC = Makeup ÷ Blowdown；現代除霧器飛濺 < 0.005%',
@@ -166,11 +183,38 @@
     jra_circ:    { ph: [6.5, 8.2], ec: 800, hard: 200, alk: 100, cl: 200, so4: 200, sio2: 50, src: 'jra_gl02' },
     tw_potable:  { ph: [6.0, 8.5], hard: 300, tds: 500, cl: 250, so4: 250, turb: 2, src: 'tw_dw' },
     us_potable:  { ph: [6.5, 8.5], tds: 500, cl: 250, so4: 250, src: 'epa_143' },
+    eu_potable:  { ph: [6.5, 9.5], ec: 2500, cl: 250, so4: 250, src: 'eu_dwd' },
+    sg_potable:  { ph: [6.5, 9.5], turb: 5, src: 'sg_pub' },
+    my_potable:  { ph: [6.5, 9.0], turb: 5, tds: 1000, hard: 500, cl: 250, so4: 250, src: 'my_moh' },
+    th_potable:  { ph: [6.5, 8.5], turb: 5, tds: 500, hard: 300, cl: 250, so4: 200, src: 'th_moi' },
+    vn_potable:  { src: 'assume' },
+    ashrae_fws:  { ph: [7, 9], hard: 200, cl: 50, so4: 100, src: 'ashrae_td99' },
+    ashrae_tcs:  { ph: [8.0, 9.5], hard: 20, cl: 5, so4: 10, ec: [0.2, 20], src: 'ashrae_td99' },
+    params: [['ph', 'pH', ''], ['ec', '導電度 EC', 'µS/cm'], ['tds', 'TDS', 'mg/L'], ['hard', '總硬度 (as CaCO₃)', 'mg/L'], ['alk', '總鹼度', 'mg/L'],
+      ['cl', '氯鹽 Cl⁻', 'mg/L'], ['so4', '硫酸鹽 SO₄²⁻', 'mg/L'], ['sio2', '二氧化矽 SiO₂', 'mg/L'], ['turb', '濁度', 'NTU']],
+    /* 預設水質基準一覽（水質規範書「各用途水質基準」表用）：group 分組、key 對應上方限值物件 */
+    uses: [
+      { group: '飲用水（生活回路）', key: 'tw_potable', label: '台灣 飲用水水質標準', region: 'TW' },
+      { group: '飲用水（生活回路）', key: 'us_potable', label: '美國 EPA 次級標準（非強制）', region: 'US' },
+      { group: '飲用水（生活回路）', key: 'eu_potable', label: '歐盟 飲用水指令 指標參數', region: 'EU' },
+      { group: '飲用水（生活回路）', key: 'sg_potable', label: '新加坡 EPH／WHO', region: 'SG' },
+      { group: '飲用水（生活回路）', key: 'my_potable', label: '馬來西亞 MOH', region: 'MY' },
+      { group: '飲用水（生活回路）', key: 'th_potable', label: '泰國 MOI（1978，參考）', region: 'TH' },
+      { group: '冷卻塔（蒸發式）', key: 'jra_makeup', label: 'JRA-GL02 補給水（不加藥）' },
+      { group: '冷卻塔（蒸發式）', key: 'jra_circ', label: 'JRA-GL02 循環水（不加藥）' },
+      { group: '液冷／冷卻水迴路', key: 'ashrae_fws', label: 'ASHRAE TC 9.9 設施水 FWS 建議' },
+      { group: '液冷／冷卻水迴路', key: 'ashrae_tcs', label: 'ASHRAE TC 9.9 二次側 TCS 建議' },
+    ],
     presets: {
       fongshan_20260810: {
         label: '高雄 鳳山淨水場（2026/08/10 公告平均值）', src: 'twc_wq_fs',
         ph: 7.5, tds: 337, hard: 138, alk: 105, cl: 17.7, so4: 139, turb: 0.15, sio2: null, ec: null,
         note: '公告未列導電度與二氧化矽；導電度依 TDS 估算（EC ≈ TDS ÷ 0.65），屬估計值。',
+      },
+      sg_pub_2023: {
+        label: '新加坡 PUB 自來水（2023 年平均值）', src: 'sg_pub',
+        ph: 8.2, ec: 222, tds: 110, hard: 43, alk: null, cl: 28, so4: 7.5, sio2: null, turb: 0.14,
+        note: 'PUB 公布全島 2023 年平均值（範圍：硬度 19–203、氯鹽 <5–154、TDS 72–354 mg/L）；未列鹼度與二氧化矽。',
       },
     },
   };
@@ -243,7 +287,7 @@
         pumpEff:      { v: 0.6,  src: 'assume' },
         pumpMargin:   { v: 1.1,  src: 'assume' },
         motorList:    { v: 'kW', src: 'assume' },
-        potable:      { v: 'tw_potable', src: 'assume' },
+        potable:      { v: 'sg_potable', src: 'sg_pub' },
         pubMeter:     { v: [[15,130],[25,700],[50,5000],[100,20000],[150,45000]], src: 'pub_hb', note: '§6.3 建議最大月用水量（m³/月）' },
       },
     },
@@ -257,7 +301,7 @@
         vMax: { v: 2.0, src: 'assume' }, resGeneral: { v: 10, src: 'assume' }, resFlushValve: { v: 10, src: 'assume' },
         hwC: { v: 130, src: 'assume' }, fittingPct: { v: 30, src: 'assume' },
         pumpEff: { v: 0.6, src: 'assume' }, pumpMargin: { v: 1.1, src: 'assume' }, motorList: { v: 'kW', src: 'assume' },
-        potable: { v: 'tw_potable', src: 'assume' },
+        potable: { v: 'eu_potable', src: 'eu_dwd' },
       },
     },
 
@@ -272,7 +316,8 @@
       method: { demand: 'per_capita', peak: 'manual', service: 'velocity', storage: 'autonomy', meter: 'utility' }, p: null },
   };
   /* 預覽區域沿用 EU 的通用假設參數 */
-  ['MY', 'TH', 'VN'].forEach(k => { REGIONS[k].p = REGIONS.EU.p; });
+  const POT = { MY: ['my_potable', 'my_moh'], TH: ['th_potable', 'th_moi'], VN: ['vn_potable', 'assume'] };
+['MY', 'TH', 'VN'].forEach(k => { REGIONS[k].p = Object.assign({}, REGIONS.EU.p, { potable: { v: POT[k][0], src: POT[k][1] } }); });
 
   /* ── 公開版的「AIDC 通用設計基準」：只放公開出處的值 ── */
   const AIDC_BASE = {
@@ -284,6 +329,8 @@
     driftPct:    { v: 0.005, src: 'epa_ct', note: '現代除霧器 < 0.005%' },
     evapRule:    { v: 0.0018, src: 'epa_ct', note: '每 °C 溫差蒸發 0.18% 循環水量（= 每 10°F 1%）' },
     hvacPeak:    { v: 1.25, src: 'assume', note: '空調補水最大時 = 日平均時 × 1.25（無空調組資料時）' },
+    minBranchDN: { v: 15, src: 'assume', note: '器具末端接管最小口徑 DN15（常見做法；IPC Table 604.5 對各器具有最小口徑，請依該表覆核）' },
+    minFlushDN:  { v: 25, src: 'assume', note: '沖水閥末端接管最小口徑 DN25（1 吋；常見做法，請依閥體廠商與 IPC Table 604.5 覆核）' },
     gradMax:     { v: 5, src: 'assume', note: '摩擦損失梯度 ≤ 5 m/100m（工程慣用值；避免長管路只受流速控制而壓損過大）' },
   };
 

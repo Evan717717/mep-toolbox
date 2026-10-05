@@ -147,8 +147,14 @@
     [...usedSrc].filter(k => SOURCES[k]).forEach(k => t3.push([{ v: SOURCES[k].short, s: 5 }, { v: SOURCES[k].full, s: 5 }, { v: SOURCES[k].url || '', s: 5 }]));
     const sheet3 = sheetXml(t3, [10, 100, 50]);
 
-    const sheets = [['計算書', sheet1], ['查表', sheet2], ['檢核與出處', sheet3]];
-    const wb = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s, i) => `<sheet name="${esc(s[0])}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets><definedNames>${names.map(([n, ref]) => `<definedName name="${n}">${esc(ref)}</definedName>`).join('')}</definedNames><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`;
+    const extra = [];
+    const ns = netSheet(R, names); if (ns) extra.push(['管徑表', ns]);
+    extra.push(['水質與設備報價', wqSheet(R)]);
+    return pack([['計算書', sheet1]].concat(extra, [['查表', sheet2], ['檢核與出處', sheet3]]), names);
+  }
+
+  function pack(sheets, names) {
+    const wb = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s, i) => `<sheet name="${esc(s[0])}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>${names.length ? `<definedNames>${names.map(([n, ref]) => `<definedName name="${n}">${esc(ref)}</definedName>`).join('')}</definedNames>` : ''}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`;
     const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
     const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
     const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
@@ -160,10 +166,87 @@
     ]);
   }
 
+
+  const LVT = { required: '必須編列', likely: '建議編列', confirm: '請廠商確認', none: '不需要' };
+  const stT = ok => ok === null || ok === undefined ? '未提供' : ok ? '符合' : '超過';
+  const fmtN = x => (typeof x === 'number' && isFinite(x)) ? x : '';
+  /* 系統昇位管徑表：流量與管長為輸入格，需求內徑、採用內徑、流速、摩擦損失皆為活公式 */
+  function netSheet(R, names) {
+    const n = R.net; if (!n) return null;
+    const rows = [];
+    rows.push([{ v: '給水管徑表（系統昇位）', s: 2 }]);
+    rows.push([{ v: `管材：${n.cat}；流速上限、摩擦梯度上限、C 值、管件加成引用「計算書」頁的 p_vmax／p_grad／p_c／p_fit（改那些輸入格，本表自動重算）`, s: 0 }]);
+    rows.push([{ v: '流量與管長為淡黃色輸入格；立管與橫支管流量為 Hunter／負荷占比的計算結果（以值貼入）；器具末端接管採最小口徑規則（採用內徑為固定值）。', s: 0 }]);
+    rows.push([]);
+    rows.push(['編號', '管段', '類別', '流量 Q（L/min）', '管長 L（m）', '需求內徑（mm）', '採用管', '採用內徑 ID（mm）', 'DN', '流速 v（m/s）', '摩擦損失 hf（m）', '梯度（m/100m）', '流量依據'].map(v => ({ v, s: 1 })));
+    const kindT = { service: '引入', main: '幹管', riser: '立管', branch: '橫支管', terminal: '末端' };
+    n.segs.forEach(sg => {
+      const r = rows.length + 1, has = sg.Q !== null && sg.Q !== undefined;
+      const row = [{ v: sg.id, s: 5 }, { v: sg.name, s: 5 }, { v: kindT[sg.kind] || sg.kind, s: 5 }, has ? { v: sg.Q, s: 3 } : { v: '—', s: 5 }, { v: sg.L, s: 3 }];
+      if (has) {
+        row.push({ f: `IF(D${r}>0,MAX(1000*SQRT(4*D${r}/60000/(PI()*k_p_vmax)),IF(k_p_grad>0,1000*(10.67*(D${r}/60000)^1.852/(k_p_c^1.852*k_p_grad/100))^(1/4.87),0)),0)`, s: 4 });
+        row.push({ v: sg.pipe, s: 5 });
+        if (sg.rule === 'size') row.push({ f: `MAX(_xlfn.MINIFS(pipe_ids,pipe_ids,">="&F${r}),${sg.minID || 0})`, s: 4 });
+        else row.push({ v: sg.ID, s: 3 });
+        row.push({ v: sg.dn, s: 5 });
+        row.push({ f: `IF(AND(D${r}>0,H${r}>0),D${r}/60000/(PI()/4*(H${r}/1000)^2),0)`, s: 4 });
+        row.push({ f: `IF(AND(D${r}>0,H${r}>0,E${r}>0),10.67*E${r}*(1+k_p_fit/100)*(D${r}/60000)^1.852/(k_p_c^1.852*(H${r}/1000)^4.87),0)`, s: 4 });
+        row.push({ f: `IF(E${r}>0,K${r}/(E${r}*(1+k_p_fit/100))*100,0)`, s: 4 });
+      } else { row.push({ v: '—', s: 5 }, { v: sg.pipe, s: 5 }, { v: sg.ID, s: 3 }, { v: sg.dn, s: 5 }, { v: '—', s: 5 }, { v: '—', s: 5 }, { v: '—', s: 5 }); }
+      row.push({ v: sg.basis, s: 5 });
+      rows.push(row);
+    });
+    if (n.profile.length) {
+      rows.push([]); rows.push([{ v: '各層末端可用壓力（以值列出）', s: 6 }]);
+      rows.push(['樓層', '末端標高（m）', '路徑摩擦損失（m）', '可用壓力（m）', '所需壓力（m）', '判定'].map(v => ({ v, s: 1 })));
+      n.profile.forEach(p => rows.push([{ v: p.floor + 'F', s: 5 }, { v: p.z, s: 4 }, { v: p.hf, s: 4 }, { v: p.avail, s: 4 }, { v: n.check.need, s: 4 }, { v: p.avail + 1e-9 >= n.check.need ? '足夠' : '不足', s: 5 }]));
+    }
+    return sheetXml(rows, [8, 34, 9, 14, 11, 14, 12, 14, 7, 12, 14, 14, 50]);
+  }
+  /* 水質與設備報價（靜態文字）：可直接附在詢價文件 */
+  function wqSheet(R) {
+    const w = R.wq, rows = [];
+    rows.push([{ v: '水處理設備報價提醒', s: 2 }]);
+    rows.push([{ v: '「必須編列」不得以選項報價；「請廠商確認」項目由廠商依原水報告判定並書面回覆。', s: 0 }]);
+    rows.push([]); rows.push([]);
+    rows.push(['設備／系統', '建議', '原因（原水對基準）', '依據', '廠商回覆：是否編列／規格／數量'].map(v => ({ v, s: 1 })));
+    w.plan.forEach(p => rows.push([{ v: p.name, s: 5 }, { v: LVT[p.level], s: 5 }, { v: p.reason, s: 5 }, { v: srcText(p.src), s: 5 }, { v: '', s: 3 }]));
+    rows.push([]); rows.push([{ v: '各用途水質比對', s: 6 }]);
+    w.systems.forEach(sy => {
+      rows.push([{ v: `${sy.label}　${sy.basis}`, s: 6 }]);
+      if (sy.rows.length) {
+        const ho = sy.rows.some(r => r.ownerLimit);
+        rows.push(['項目', '原水', '基準', '判定'].concat(ho ? ['業主基準', '判定'] : []).map(v => ({ v, s: 1 })));
+        sy.rows.forEach(r => rows.push([{ v: r.label + (r.unit ? `（${r.unit}）` : ''), s: 5 }, r.v === null ? { v: '—', s: 5 } : { v: r.v, s: 4 }, { v: r.limit, s: 5 }, { v: stT(r.ok), s: 5 }].concat(ho ? [{ v: r.ownerLimit || '—', s: 5 }, { v: r.ownerLimit ? stT(r.ownerOk) : '—', s: 5 }] : [])));
+      }
+    });
+    rows.push([]); rows.push([{ v: '各國飲用水標準比對', s: 6 }]);
+    const cmp = w.compare;
+    rows.push(['項目'].concat(cmp.map(c => c.label)).map(v => ({ v, s: 1 })));
+    const keys = []; cmp.forEach(c => c.rows.forEach(r => { if (!keys.find(k => k[0] === r.k)) keys.push([r.k, r.label]); }));
+    keys.forEach(([k, lb]) => rows.push([{ v: lb, s: 5 }].concat(cmp.map(c => { const r = c.rows.find(x => x.k === k); return { v: r ? `${r.limit} ${r.ok === null ? '' : r.ok ? '✓' : '✕'}` : '—', s: 5 }; }))));
+    rows.push([]); rows.push([{ v: '出處', s: 6 }]);
+    cmp.forEach(c => rows.push([{ v: c.label, s: 5 }, { v: srcText(c.src), s: 5 }]));
+    return sheetXml(rows, [40, 14, 70, 34, 34, 20, 20]);
+  }
+  function xlsxWQ(R, meta) {
+    meta = meta || {};
+    return pack([['水質與設備報價', wqSheet(R)]], []);
+  }
+
   /* ═════════════════════════ DOCX ═════════════════════════ */
-  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
   const run = (t, o) => { o = o || {}; return `<w:r><w:rPr>${o.b ? '<w:b/>' : ''}${o.color ? `<w:color w:val="${o.color}"/>` : ''}${o.sz ? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : ''}${o.mono ? '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/>' : ''}</w:rPr><w:t xml:space="preserve">${esc(t)}</w:t></w:r>`; };
   const para = (t, o) => { o = o || {}; return `<w:p><w:pPr>${o.style ? `<w:pStyle w:val="${o.style}"/>` : ''}${o.align ? `<w:jc w:val="${o.align}"/>` : ''}<w:spacing w:after="${o.after === undefined ? 80 : o.after}"/></w:pPr>${Array.isArray(t) ? t.join('') : run(t, o)}</w:p>`; };
+  /* 圖片（PNG）：寬度縮放到 9600 dxa（約 16.9 cm）以內；media 收集在 media 陣列，由 docxPackage 一併封裝 */
+  function imagePara(im, media) {
+    const idx = media.length + 1, rid = 'rIdImg' + idx;
+    media.push({ name: `word/media/image${idx}.png`, data: im.png, rid, target: `media/image${idx}.png` });
+    const maxEmu = 9600 / 1440 * 914400;
+    const cx = Math.round(Math.min(maxEmu, im.w * 9525)), cy = Math.round(cx * im.h / im.w);
+    const cap = im.title ? para(im.title, { b: true, sz: 18, after: 40 }) : '';
+    return cap + `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${idx}" name="圖 ${idx}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${idx}" name="image${idx}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  }
   function table(rows, widths, header) {
     const grid = widths.map(w => `<w:gridCol w:w="${w}"/>`).join('');
     const tr = (cells, isHead) => `<w:tr>${isHead ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.map((c, i) => `<w:tc><w:tcPr><w:tcW w:w="${widths[i]}" w:type="dxa"/>${isHead ? '<w:shd w:val="clear" w:color="auto" w:fill="E2E8F0"/>' : (c && c.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${c.fill}"/>` : '')}</w:tcPr>${para(typeof c === 'object' && c !== null ? c.t : c, { b: isHead || (c && c.b), sz: 17, after: 0, mono: c && c.mono, color: c && c.color })}</w:tc>`).join('')}</w:tr>`;
@@ -190,6 +273,8 @@
       const n = t.rows[0].length, w = Array(n).fill(Math.floor(9600 / n));
       b.push(table(t.rows.slice(1), w, t.rows[0]));
     });
+    const media = [];
+    (meta.images || []).forEach(im => { if (im && im.png) b.push(imagePara(im, media)); });
     let sec = null, buf = [];
     const flush = () => { if (buf.length) { b.push(table(buf, [2300, 2700, 2200, 1200, 700, 1300], ['項目', '公式', '代入', '結果', '單位', '出處'])); buf = []; } };
     R.trace.forEach(st => {
@@ -210,30 +295,32 @@
     b.push(para('', { after: 200 }));
     b.push(table([['核算 Designed', '審核 Checked', '核定 Approved'], ['\n\n', '\n\n', '\n\n']], [3200, 3200, 3200]));
     const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W}><w:body>${b.join('')}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr></w:body></w:document>`;
-    return docxPackage(doc);
+    return docxPackage(doc, media);
   }
 
-  function docxPackage(doc) {
+  function docxPackage(doc, media) {
+    media = media || [];
     const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Microsoft JhengHei"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US" w:eastAsia="zh-TW"/></w:rPr></w:rPrDefault></w:docDefaults>
 <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
 <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/><w:spacing w:after="200"/></w:pPr><w:rPr><w:b/><w:sz w:val="36"/></w:rPr></w:style>
 <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="100"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:color w:val="0F766E"/><w:sz w:val="26"/></w:rPr></w:style>
 <w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="CBD5E1"/><w:left w:val="single" w:sz="4" w:color="CBD5E1"/><w:bottom w:val="single" w:sz="4" w:color="CBD5E1"/><w:right w:val="single" w:sz="4" w:color="CBD5E1"/><w:insideH w:val="single" w:sz="4" w:color="CBD5E1"/><w:insideV w:val="single" w:sz="4" w:color="CBD5E1"/></w:tblBorders><w:tblCellMar><w:left w:w="70" w:type="dxa"/><w:right w:w="70" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>`;
-    const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`;
+    const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>${media.length ? '<Default Extension="png" ContentType="image/png"/>' : ''}</Types>`;
     const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
-    const drels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+    const drels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${media.map(m => `<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${m.target}"/>`).join('')}</Relationships>`;
     return zip([
       { name: '[Content_Types].xml', data: ct }, { name: '_rels/.rels', data: rels },
       { name: 'word/document.xml', data: doc }, { name: 'word/_rels/document.xml.rels', data: drels },
       { name: 'word/styles.xml', data: styles },
-    ]);
+    ].concat(media.map(m => ({ name: m.name, data: m.data }))));
   }
 
   /* 通用區塊 → Word（水質基準書、規範書用） */
   function docxFromBlocks(blocks) {
-    const b = [];
+    const b = [], media = [];
     blocks.forEach(k => {
-      if (k.title) b.push(para(k.title, { style: 'Title' }));
+      if (k.image) b.push(imagePara(k.image, media));
+      else if (k.title) b.push(para(k.title, { style: 'Title' }));
       else if (k.h) b.push(para(k.h, { style: 'Heading1' }));
       else if (k.warn) b.push(para(k.warn, { color: 'B91C1C', b: true, align: 'center' }));
       else if (k.list) k.list.forEach((t, i) => b.push(para(`${i + 1}. ${t}`)));
@@ -245,14 +332,14 @@
         b.push(para('', { after: 60 }));
       } else if (k.p !== undefined) b.push(para(k.p));
     });
-    return wrapDocx(b);
+    return wrapDocx(b, media);
   }
-  function wrapDocx(b) {
+  function wrapDocx(b, media) {
     const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W}><w:body>${b.join('')}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr></w:body></w:document>`;
-    return docxPackage(doc);
+    return docxPackage(doc, media);
   }
 
-  const API = { zip, crc32, xlsxFromResult, docxFromResult, docxFromBlocks, xlFormula };
+  const API = { zip, crc32, xlsxFromResult, xlsxWQ, docxFromResult, docxFromBlocks, xlFormula };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   else root.AIDC_OOXML = API;
 })(typeof window !== 'undefined' ? window : globalThis);

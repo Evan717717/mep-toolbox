@@ -117,7 +117,88 @@ ok(ro.params.coolHours.src === 'owner' && v(ro, 'h_cool') === 24, '業主參數�
 const ru = E.run(Object.assign(clone(LQ), { over: { totMinPct: 300, coolHours: 6 } }), own);
 ok(ru.params.coolHours.src === 'user' && v(ru, 'h_cool') === 6, '使用者覆寫優先於業主基準');
 
-sec('6 匯出檔');
+
+sec('6 系統昇位與管徑（System Flow）');
+const NETIN = Object.assign(clone(US), { net: { floors: 6, floorH: 4.5, basement: 5, termH: 1.2, lenMain: 60, lenHdr: 25, lenBranch: 30, lenTerm: 6, roofHvac: true },
+  pumps: [{ name: 'D', kind: 'domestic', share: 100, static: null, length: 100 }, { name: 'H', kind: 'hvac', share: 100, static: null, length: 150, residual: 14 }] });
+const rn = E.run(NETIN);
+ok(rn.net && rn.net.segs.length > 10, '產出管段表', rn.net && rn.net.segs.length);
+const sgs = id => rn.net.segs.find(x => x.id === id);
+ok(near(sgs('R0').Q, rn.qpDom, 1e-9), '立管底流量 = 全棟生活尖峰（Hunter 累計 WSFU）', sgs('R0').Q.toFixed(1));
+ok(sgs('R0').Q > sgs('R2').Q && sgs('R2').Q > sgs('R5').Q, '立管流量由下往上逐層遞減', [0, 2, 5].map(k => sgs('R' + k).Q.toFixed(1)).join(' > '));
+const wTot = rn.wsfuTot;
+ok(near(sgs('B1').Q, E.U.hunter(wTot / 6, rn.valveSys) * 3.785411784, 1e-9), '層內橫支管流量 = Hunter(單層 ΣWSFU)');
+ok(rn.net.segs.filter(x => x.kind !== 'terminal' && x.v !== null).every(x => x.v <= rn.params.vMax.v + 1e-9), '所有主管、立管、支管流速 ≤ 上限');
+ok(rn.net.segs.filter(x => x.kind === 'riser' || x.kind === 'main').every(x => x.dn >= sgs('B1').dn || x.Q < sgs('B1').Q), '主管管徑不小於其下游支管');
+const dnOf = id => sgs(id).dn;
+ok(dnOf('R0') >= dnOf('R1') && dnOf('R1') >= dnOf('R3') && dnOf('R3') >= dnOf('R5'), '立管管徑隨流量遞減不增', ['R0', 'R1', 'R3', 'R5'].map(dnOf).join('≥'));
+ok(near(sgs('R1').L, 4.5, 1e-9) && near(sgs('H1').L, 6 * 4.5 + 5, 1e-9), '立管長度 = 樓高；空調補水立管 = 屋頂標高 + 泵房深度', sgs('H1').L);
+const top = rn.net.profile[5], lowp = rn.net.profile[0];
+ok(near(top.avail, rn.pumps[0].H - (rn.net.profile[5].z + 5) - top.hf, 1e-9), '頂層可用壓力 = 泵揚程 − 昇位 − 路徑摩擦', top.avail.toFixed(2));
+ok(lowp.avail > top.avail, '低層可用壓力大於頂層');
+ok(near(rn.index.z0_hs.v, 5 + 5 * 4.5 + 1.2, 1e-9) && rn.index.z0_hs.kind === 'calc', '泵浦靜揚程留空 → 由昇位自動帶入（頂層末端標高 − 泵房底）', rn.index.z0_hs.v);
+ok(rn.checks.some(c => c.sec.startsWith('6c') && /可用壓力/.test(c.msg)), '產出末端壓力檢核');
+const rnLow = E.run(Object.assign(clone(NETIN), { pumps: [{ name: 'D', kind: 'domestic', share: 100, static: 8, length: 100 }] }));
+ok(rnLow.checks.some(c => c.level === 'fail' && /可用壓力/.test(c.msg)) && rnLow.checks.some(c => /靜揚程/.test(c.msg)), '泵浦靜揚程過低 → 判不合格並指出原因');
+sens('樓層數', NETIN, x => { x.net.floors = 12; }, ['net_zrise', 'z0_hs', 'z0_h']);
+const rn2 = clone(NETIN); rn2.net.floors = 12; const r12 = E.run(rn2);
+ok(r12.net.segs.find(x => x.id === 'R0').dn >= 0 && r12.net.segs.filter(x => x.kind === 'branch').length === 12, '樓層數改變 → 支管數量隨之改變', r12.net.segs.filter(x => x.kind === 'branch').length);
+const twn = E.run({ region: 'TW', cooling: { type: 'closed_ct', basis: 'hvac', hvacDaily: 400 }, domestic: { twRows: [{ type: 'office', area: 800 }] }, net: { floors: 4 }, pumps: [{ name: 'D', kind: 'domestic', share: 100, static: null, length: 100 }], wq: {} });
+ok(near(twn.net.segs.find(x => x.id === 'R0').Q, twn.qpDom, 1e-9) && near(twn.net.segs.find(x => x.id === 'R3').Q, twn.qpDom / 4, 1e-9), '台灣：無 Hunter，立管流量依各層負荷占比', twn.net.segs.find(x => x.id === 'R3').Q.toFixed(1));
+ok(twn.net.segs.find(x => x.id === 'S1').dn === twn.service.adopt, '台灣：引入管採台水 Di 級距口徑', twn.service.adopt);
+// 管徑獨立驗算：Hazen-Williams 反推梯度
+const sx = rn.net.segs.find(x => x.id === 'M1');
+ok(near(sx.hf, E.U.hw(sx.Q / 60000, sx.ID / 1000, sx.L * 1.3, 130), 1e-9), '管段摩擦損失 = Hazen-Williams（含 30% 管件加成）');
+const noNet = E.run(Object.assign(clone(NETIN), { net: { enable: false } }));
+ok(!noNet.net, 'net.enable=false → 不產生管徑表');
+
+sec('7 水質規範書：各用途比對與設備報價提醒');
+const WQIN = (wq, extra) => Object.assign({ region: 'TW', cooling: { type: 'closed_ct', basis: 'hvac', hvacDaily: 400, coc: 3, humidDaily: 0 }, domestic: { twRows: [{ type: 'office', area: 800 }] }, pumps: [], wq }, extra || {});
+const planOf = (r, k) => r.wq.plan.find(p => p.key === k);
+const fs20 = E.run(WQIN({ ph: 7.5, tds: 337, hard: 138, alk: 105, cl: 17.7, so4: 139, turb: 0.15 }));
+ok(planOf(fs20, 'tcs_fill').level === 'required', '鳳山原水 → TCS 充水必須編列 RO＋DI（原水硬度 138 ≫ ASHRAE TCS 20）');
+ok(['chem', 'bleed'].every(k => planOf(fs20, k).level === 'required'), '蒸發式冷卻 COC 3 超過可達 → 加藥與導電度排放必須編列');
+ok(planOf(fs20, 'softener').level === 'likely' && planOf(fs20, 'ro').level === 'likely', '硬度／硫酸鹽限制 COC → 軟化與 RO 建議編列');
+ok(planOf(fs20, 'filter').level === 'none', '濁度 0.15 NTU → 不需前處理過濾');
+const clean = E.run(WQIN({ ph: 8.5, ec: 5, tds: 3, hard: 2, alk: 5, cl: 0.5, so4: 0.5, turb: 0.1, sio2: 1 }));
+ok(planOf(clean, 'tcs_fill').level === 'likely' && planOf(clean, 'softener').level === 'none' && planOf(clean, 'ro').level === 'none', '超純水（RO 產水等級）→ 軟化與 RO 不需要');
+const dirty = E.run(WQIN({ ph: 7.5, tds: 300, hard: 120, cl: 20, so4: 30, turb: 12 }));
+ok(planOf(dirty, 'filter').level === 'likely', '濁度 12 NTU 超過飲用水基準 → 建議前處理過濾');
+const unk = E.run(WQIN({}));
+ok(planOf(unk, 'tcs_fill').level === 'confirm' && planOf(unk, 'filter').level === 'confirm', '未提供原水數值 → 一律「請廠商確認」，不替廠商下結論');
+const dryW = E.run(WQIN({ ph: 7.5, hard: 138 }, { cooling: { type: 'dry', basis: 'hvac', hvacDaily: 0, humidDaily: 10 } }));
+ok(planOf(dryW, 'chem').level === 'none' && !dryW.wq.systems.find(x => x.key === 'ct') && planOf(dryW, 'humid').level === 'confirm', '乾式冷卻器：無冷卻塔補水系統，加濕補水列為廠商確認');
+// 各國標準：Malaysia 硬度 500、Taiwan 硬度 300；以硬度 400 區分
+const h400 = E.run(WQIN({ ph: 7.5, hard: 400, tds: 400, cl: 100, so4: 100 }));
+const cmpOf = k => h400.wq.compare.find(c => c.key === k);
+ok(cmpOf('tw_potable').exceed >= 1 && cmpOf('my_potable').exceed === 0, '同一份原水（硬度 400）：台灣超標、馬來西亞符合 → 各國標準獨立比對');
+ok(h400.wq.compare.length === 6, '比對六個國家／區域標準', h400.wq.compare.map(c => c.region).join(','));
+ok(P.WQ.eu_potable.ec === 2500 && P.WQ.eu_potable.cl === 250 && P.WQ.my_potable.hard === 500 && P.WQ.th_potable.so4 === 200, '新增飲用水標準數值與查證原文一致（歐盟 EC 2500、馬來西亞硬度 500、泰國硫酸鹽 200）');
+ok(P.WQ.ashrae_tcs.hard === 20 && P.WQ.ashrae_tcs.cl === 5 && P.WQ.ashrae_fws.so4 === 100, 'ASHRAE TC 9.9 FWS／TCS 建議值與查證原文一致');
+ok(P.WQ.presets.sg_pub_2023.hard === 43 && P.WQ.presets.sg_pub_2023.tds === 110, 'PUB 2023 平均水質預設與公告一致');
+ok(P.REGIONS.SG.p.potable.v === 'sg_potable' && P.REGIONS.EU.p.potable.v === 'eu_potable' && P.REGIONS.VN.p.potable.v === 'vn_potable', '各區域飲用水標準指向各自的登錄值');
+const ownW = { name: 'o', params: {}, wqLimits: { tcs: { hard: 5, so4: 3 } } };
+const rw = E.run(WQIN({ ph: 8.5, hard: 10, so4: 5, cl: 1 }), ownW);
+const tcsRows = rw.wq.systems.find(x => x.key === 'tcs').rows;
+ok(tcsRows.find(x => x.k === 'hard').ok === true && tcsRows.find(x => x.k === 'hard').ownerOk === false, '業主水質基準（本機載入）比 ASHRAE 更嚴時，單獨判定並顯示');
+ok(planOf(rw, 'tcs_fill').level === 'required', '只要業主基準超標就列為必須編列');
+ok(!JSON.stringify(P).includes('PG25') && !JSON.stringify(P).includes('NVIDIA'), '公開 profile 不含業主機密內容（無 PG25／NVIDIA 字樣）');
+
+sec('8 參數覆寫確實反映到結果與報表');
+const baseTW = E.run(LQ);
+const ovr = E.run(Object.assign(clone(LQ), { over: { totMinPct: 100, vMax: 1.2, gradMax: 3, compartments: 3, coolHours: 24, pumpEff: 0.8 } }));
+ok(v(ovr, 'tot_min') !== v(baseTW, 'tot_min') && near(v(ovr, 'tot_min'), v(ovr, 'Vd'), 1e-9), '覆寫 水池合計下限 100% → tot_min 改變且 = Vd');
+ok(v(ovr, 'cell_dom') !== v(baseTW, 'cell_dom') || v(ovr, 'n_cell') === 3, '覆寫 水池分格數 3 → n_cell = 3', v(ovr, 'n_cell'));
+ok(v(ovr, 'z1_id') >= v(baseTW, 'z1_id') && v(ovr, 'z1_v') <= 1.2 + 1e-9, '覆寫 流速上限 1.2 → 管徑增大、流速 ≤ 1.2', v(ovr, 'z1_v'));
+ok(v(ovr, 'z0_kw') < v(baseTW, 'z0_kw') || v(ovr, 'z1_kw') < v(baseTW, 'z1_kw'), '覆寫 泵浦效率 0.8 → 軸功率降低');
+ok(['vMax', 'gradMax', 'compartments', 'coolHours', 'pumpEff'].every(k => ovr.params[k].src === 'user'), '被覆寫的參數出處一律標示為「使用者輸入」');
+ok(['p_vmax', 'n_cell', 'h_cool', 'p_eff'].every(id => ovr.index[id].src.includes('user')), '覆寫值出現在計算書（trace）輸入列，標示使用者輸入');
+const xo = O.xlsxFromResult(ovr, {}); ok(Buffer.from(xo).toString('latin1').length > 1000, 'Excel 以覆寫後的值產出');
+const sw = E.run(Object.assign(clone(LQ), { region: 'US', domestic: { occupants: 80, fixtures: { wc_fv: 8, lav: 8 } }, over: { totMinPct: 300 } }));
+ok(sw.region === 'US' && v(sw, 'qp_gpm') !== undefined && sw.params.totMinPct === undefined, '切換區域：同一份輸入立即以另一套法規重算（US 走 Hunter，台灣專用參數不套用）');
+ok(sw.index.wsfu && !baseTW.index.wsfu && baseTW.index.qh && !sw.index.qh, '切換區域後計算方法隨之改變（TW 用 Qh、US 用 WSFU）');
+
+sec('9 匯出檔');
 const xl = O.xlsxFromResult(r, { project: 't' }), dx = O.docxFromResult(r, { project: 't' });
 ok(xl[0] === 0x50 && xl[1] === 0x4b && dx[0] === 0x50, 'xlsx/docx 皆為 ZIP（PK 標頭）');
 ok(O.crc32(Buffer.from('123456789')) === 0xCBF43926, 'CRC32 標準測試向量 "123456789" = CBF43926');
@@ -126,17 +207,24 @@ let soffice = null;
 try { execFileSync('soffice', ['--version'], { stdio: 'pipe', timeout: 30000 }); soffice = 'soffice'; } catch (e) { /* 沒有 LibreOffice */ }
 if (soffice) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aidc-'));
-  const cases = { tw: LQ, us: Object.assign(clone(US), { pumps: [{ name: 'D', kind: 'domestic', share: 100, static: 15, length: 150 }, { name: 'H', kind: 'hvac', share: 50, static: 8, length: 300, residual: 14 }], wq: { ph: 7.5, tds: 337, hard: 138, alk: 105, cl: 17.7, so4: 139 } }) };
+  const cases = { tw: Object.assign(clone(LQ), { net: { floors: 4 } }), net: NETIN, us: Object.assign(clone(US), { pumps: [{ name: 'D', kind: 'domestic', share: 100, static: 15, length: 150 }, { name: 'H', kind: 'hvac', share: 50, static: 8, length: 300, residual: 14 }], wq: { ph: 7.5, tds: 337, hard: 138, alk: 105, cl: 17.7, so4: 139 } }) };
   const expect = {};
   Object.entries(cases).forEach(([k, inp]) => { const rr = E.run(inp); fs.writeFileSync(path.join(tmp, k + '.xlsx'), O.xlsxFromResult(rr, {})); expect[k] = {}; rr.trace.forEach(s => { if (typeof s.v === 'number' && s.kind === 'calc') expect[k][s.id] = s.v; }); });
   try {
-    execFileSync(soffice, ['--headless', '--calc', '--convert-to', 'csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,false,false,false,1', '--outdir', path.join(tmp, 'out'), path.join(tmp, 'tw.xlsx'), path.join(tmp, 'us.xlsx')], { stdio: 'pipe', timeout: 120000, env: Object.assign({}, process.env, { LC_ALL: 'C.UTF-8', LANG: 'C.UTF-8' }) });
+    execFileSync(soffice, ['--headless', '--calc', '--convert-to', 'csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,false,false,false,-1', '--outdir', path.join(tmp, 'out'), path.join(tmp, 'tw.xlsx'), path.join(tmp, 'net.xlsx'), path.join(tmp, 'us.xlsx')], { stdio: 'pipe', timeout: 120000, env: Object.assign({}, process.env, { LC_ALL: 'C.UTF-8', LANG: 'C.UTF-8' }) });
     Object.keys(cases).forEach(k => {
       const csv = fs.readFileSync(path.join(tmp, 'out', k + '-計算書.csv'), 'utf8').split(/\r?\n/).map(l => l.split(','));
       let n = 0, bad = 0;
       csv.forEach(row => { const id = row[2], val = parseFloat(row[3]); if (id in expect[k]) { n++; if (!(Math.abs(val - expect[k][id]) <= 1e-6 * Math.max(1, Math.abs(expect[k][id])))) { bad++; console.log('     mismatch', id, val, expect[k][id]); } } });
       ok(n > 30 && bad === 0, `Excel 重算 = JS（${k}，${n} 個計算格）`, `${n - bad}/${n}`);
     });
+    // 管徑表：活公式（需求內徑、採用內徑、流速、摩擦損失、梯度）逐段與 JS 比對
+    const rr = E.run(NETIN), netCsv = fs.readFileSync(path.join(tmp, 'out', 'net-管徑表.csv'), 'utf8').split(/\r?\n/).map(l => l.split(','));
+    let nn = 0, nb = 0;
+    rr.net.segs.forEach(sg => { const row = netCsv.find(r => r[0] === sg.id); if (!row || sg.Q === null) return; nn++;
+      const chk = [[5, sg.dreq], [7, sg.ID], [9, sg.v], [10, sg.hf], [11, sg.S]];
+      chk.forEach(([ci, ev]) => { const got = parseFloat(row[ci]); if (!(Math.abs(got - ev) <= 1e-6 * Math.max(1, Math.abs(ev)))) { nb++; console.log('     net mismatch', sg.id, ci, got, ev); } }); });
+    ok(nn > 10 && nb === 0, `Excel 管徑表重算 = JS（${nn} 管段 × 5 欄活公式）`, `${nn} segs`);
   } catch (e) { ok(false, 'LibreOffice 重算執行失敗：' + e.message.split('\n')[0]); }
 } else console.log('  SKIP  未安裝 LibreOffice，略過 Excel 重算比對');
 
