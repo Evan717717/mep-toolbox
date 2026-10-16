@@ -84,6 +84,9 @@
     th_moi: { tier: 'gov', short: '泰國 MOI 飲用水標準（舊）',
       full: 'Thailand Ministry of Industry Notification No. 322 B.E. 2521 (1978)，經 WEPA 資料庫轉載：pH 6.5–8.5、濁度 5（SSU）、總固體 500、硬度 < 300、氯鹽 250、硫酸鹽 200。為 1978 年公告，是否為現行供水（MWA／PWA）規定未查證，只作參考',
       url: 'https://wepa-db.net/archive/policies/law/thailand/std_drinking.htm' },
+    th_pwa: { tier: 'gov', short: '泰國 PWA 水質標準（2024）',
+      full: '泰國自來水局（Provincial Waterworks Authority, PWA）供水水質標準 PDF（2024 版，使用者提供）：濁度 ≤ 4 NTU、TDS ≤ 600 mg/L、硫酸鹽 ≤ 250 mg/L、氯鹽 ≤ 250 mg/L。【待補】PDF 檔名與頁碼（請向使用者索取原頁確認）；pH 與總硬度限值該 PDF 尚未核對，故不登錄、不沿用舊值',
+      url: '' },
     ashrae_td99: { tier: 'guide', short: 'ASHRAE TC 9.9 水冷伺服器白皮書',
       full: 'ASHRAE TC 9.9 White Paper "Water-Cooled Servers" Table 1：設施水系統 FWS（pH 7–9、氯鹽 < 50、硫酸鹽 < 100、總硬度 < 200 mg/L、細菌 < 1,000 CFU/mL、濾網 400–500 µm）；二次側 TCS（pH 8.0–9.5、氯鹽 < 5、硫酸鹽 < 10、總硬度 < 20 mg/L、導電度 0.2–20 µS/cm、細菌 < 100 CFU/mL、絕對過濾）。版本年份未標示',
       url: 'https://www.ashrae.org/File%20Library/Technical%20Resources/Bookstore/WhitePaper_TC099-WaterCooledServers.pdf' },
@@ -187,6 +190,7 @@
     sg_potable:  { ph: [6.5, 9.5], turb: 5, src: 'sg_pub' },
     my_potable:  { ph: [6.5, 9.0], turb: 5, tds: 1000, hard: 500, cl: 250, so4: 250, src: 'my_moh' },
     th_potable:  { ph: [6.5, 8.5], turb: 5, tds: 500, hard: 300, cl: 250, so4: 200, src: 'th_moi' },
+    th_pwa_2024: { turb: 4, tds: 600, cl: 250, so4: 250, src: 'th_pwa' },
     vn_potable:  { src: 'assume' },
     ashrae_fws:  { ph: [7, 9], hard: 200, cl: 50, so4: 100, src: 'ashrae_td99' },
     ashrae_tcs:  { ph: [8.0, 9.5], hard: 20, cl: 5, so4: 10, ec: [0.2, 20], src: 'ashrae_td99' },
@@ -199,12 +203,22 @@
       { group: '飲用水（生活回路）', key: 'eu_potable', label: '歐盟 飲用水指令 指標參數', region: 'EU' },
       { group: '飲用水（生活回路）', key: 'sg_potable', label: '新加坡 EPH／WHO', region: 'SG' },
       { group: '飲用水（生活回路）', key: 'my_potable', label: '馬來西亞 MOH', region: 'MY' },
+      { group: '飲用水（生活回路）', key: 'th_pwa_2024', label: '泰國 PWA 水質標準（2024）', region: 'TH' },
       { group: '飲用水（生活回路）', key: 'th_potable', label: '泰國 MOI（1978，參考）', region: 'TH' },
       { group: '冷卻塔（蒸發式）', key: 'jra_makeup', label: 'JRA-GL02 補給水（不加藥）' },
       { group: '冷卻塔（蒸發式）', key: 'jra_circ', label: 'JRA-GL02 循環水（不加藥）' },
       { group: '液冷／冷卻水迴路', key: 'ashrae_fws', label: 'ASHRAE TC 9.9 設施水 FWS 建議' },
       { group: '液冷／冷卻水迴路', key: 'ashrae_tcs', label: 'ASHRAE TC 9.9 二次側 TCS 建議' },
     ],
+    /* 冷卻塔循環水（含密閉式噴淋水）可選基準：不得靜默替換，由使用者選 */
+    circ_bases: {
+      jra:     { label: 'JRA-GL02 循環水（開放式、不加藥）', limits: 'jra_circ', src: 'jra_gl02',
+        note: 'JRA-GL02 屬開放式、不加藥基準；密閉式冷卻塔噴淋水通常加藥運轉，請依實際水處理方案另選基準。' },
+      bac_gal: { label: '密閉式冷卻塔噴淋水（鍍鋅盤管）：總硬度 ≤ 600 mg/L【待對照原廠手冊】', limits: { hard: 600 }, src: 'assume',
+        note: '數值摘錄自 BAC 網頁資料，尚未對照原廠手冊；對照並取得手冊章節／頁碼前只能視為工程假設。' },
+      bac_hdg: { label: '密閉式冷卻塔噴淋水（熱浸鍍鋅／SS316）：總硬度 ≤ 750 mg/L【待對照原廠手冊】', limits: { hard: 750 }, src: 'assume',
+        note: '數值摘錄自 BAC 網頁資料，尚未對照原廠手冊；對照並取得手冊章節／頁碼前只能視為工程假設。' },
+    },
     presets: {
       fongshan_20260810: {
         label: '高雄 鳳山淨水場（2026/08/10 公告平均值）', src: 'twc_wq_fs',
@@ -316,7 +330,7 @@
       method: { demand: 'per_capita', peak: 'manual', service: 'velocity', storage: 'autonomy', meter: 'utility' }, p: null },
   };
   /* 預覽區域沿用 EU 的通用假設參數 */
-  const POT = { MY: ['my_potable', 'my_moh'], TH: ['th_potable', 'th_moi'], VN: ['vn_potable', 'assume'] };
+  const POT = { MY: ['my_potable', 'my_moh'], TH: ['th_pwa_2024', 'th_pwa'], VN: ['vn_potable', 'assume'] };
 ['MY', 'TH', 'VN'].forEach(k => { REGIONS[k].p = Object.assign({}, REGIONS.EU.p, { potable: { v: POT[k][0], src: POT[k][1] } }); });
 
   /* ── 公開版的「AIDC 通用設計基準」：只放公開出處的值 ── */
@@ -324,6 +338,9 @@
     coolHours:   { v: 12, src: 'uptime_mw', note: 'Tier III 12 小時補給水（蒸發式散熱才需要）' },
     domHours:    { v: 24, src: 'assume', note: '生活用水備援時數，工程假設' },
     compartments:{ v: 2,  src: 'assume', note: '水池分 2 格，單格清洗時不斷水（可同時維修）' },
+    maxCellVolume:{ v: null, src: 'assume', note: '單顆水箱容量上限（m³）。預設不設；由使用者填過往專案或水箱廠商上限，設定後才檢查單顆是否超過' },
+    designMarginDom:{ v: 1.1, src: 'assume', note: '生活用水設計裕度（工程假設）' },
+    designMarginProc:{ v: 1.0, src: 'assume', note: '空調／製程設計裕度。空調組提供的補水量通常已含裕度，預設不再加；若空調組給的是未含裕度的數值，請在此覆寫' },
     pumpDuty:    { v: 1,  src: 'assume' },
     pumpStandby: { v: 1,  src: 'assume', note: '1 用 1 備' },
     driftPct:    { v: 0.005, src: 'epa_ct', note: '現代除霧器 < 0.005%' },

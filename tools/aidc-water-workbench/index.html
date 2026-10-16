@@ -160,6 +160,19 @@ details.more > summary{cursor:pointer;color:var(--accent-ink);font-size:12.8px;f
 .helpbox{background:var(--info-soft);border:1px solid color-mix(in srgb,var(--info) 35%,transparent);border-radius:8px;padding:8px 12px;font-size:12.8px;margin-top:6px}
 .helpbox p{margin:5px 0}
 .qnote{display:block;font:11px var(--mono);color:var(--dimmer);margin-top:2px;white-space:nowrap}
+.storebar{border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--r);padding:9px 14px;font-size:13.5px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline}
+.storebar b{font-family:var(--mono)} .storebar .bad{color:var(--bad);font-weight:700} .storebar .warnc{color:var(--warn);font-weight:700} .storebar .okc{color:var(--good);font-weight:700}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tank-tbl td,#pumpTbl td{vertical-align:top}
+.tank-tbl input[type=number],.tank-tbl input[type=text],.tank-tbl select{min-width:56px}
+.tank-tbl .stack{display:flex;flex-direction:column;gap:4px}
+.tank-tbl .dims{display:flex;gap:4px} .tank-tbl .dims input{width:62px}
+.tank-tbl .off{opacity:.4}
+#pumpTbl input[type=number],#pumpTbl input[type=text],#pumpTbl select{min-width:76px}
+#pumpTbl .stack{display:flex;flex-direction:column;gap:4px}
+.todo{border:1px dashed var(--warn);background:var(--warn-soft);border-radius:8px;padding:8px 12px;font-size:12.8px;margin-top:10px}
+.todo b{color:var(--warn)} .todo ul{margin:4px 0 0 18px;padding:0}
+.tag-todo{font-size:10.5px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:5px;padding:0 5px;margin-left:4px;white-space:nowrap}
 .lv{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
 .lv.required{color:var(--bad)} .lv.likely{color:var(--warn)} .lv.confirm{color:var(--info)} .lv.none{color:var(--dimmer)}
 .ovpill{display:inline-flex;gap:6px;align-items:center;font-size:12px;border:1px solid var(--warn);background:var(--warn-soft);border-radius:999px;padding:2px 10px;cursor:pointer;color:var(--ink)}
@@ -296,6 +309,7 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
             <div class="f"><label for="hvacDaily">空調補水量 m³/日</label><input type="number" id="hvacDaily" min="0" step="0.01" data-bind="cooling.hvacDaily"><div class="hint">空調組提供的滿載日補水量（蒸發＋排放＋飛濺）</div></div>
             <div class="f"><label for="hvacMaxHour">最大時補水量 m³/h（選填）</label><input type="number" id="hvacMaxHour" min="0" step="0.01" data-bind="cooling.hvacMaxHour"><div class="hint">留空則以日平均 × 尖峰係數估計</div></div>
             <div class="f" id="cocHvacF"><label for="cocH">濃縮倍數 COC（空調組）</label><input type="number" id="cocH" min="1.1" step="0.1" data-bind="cooling.coc"><div class="hint">用來判斷補給水水質是否足夠</div></div>
+            <div class="f" id="heatHvacF"><label for="heatKW2">冷卻塔排熱量 kW（選填）</label><input type="number" id="heatKW2" min="0" step="10" data-bind="cooling.heatKW" data-null="1"><div class="hint">填入後與空調組日量做物理交叉檢查（Range、負載率、蒸發比例沿用「只有排熱量」頁籤的設定）；留空＝不檢查</div></div>
           </div>
           <div id="coolCalc" class="grid">
             <div class="f"><label for="heatKW">冷卻塔排熱量 kW</label><input type="number" id="heatKW" min="0" step="10" data-bind="cooling.heatKW"><div class="hint">≈ IT 負載 + 機電損失中由冷卻塔排出的部分</div></div>
@@ -320,6 +334,7 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
             <button type="button" data-twmode="eng">工程保守</button>
           </div>
           <div id="outDemand"></div>
+          <details class="more"><summary>用水量相關設計參數（可覆寫）</summary><p class="sub" style="margin:6px 0">設計裕度分成「生活」與「空調／製程」兩個：空調組提供的補水量通常已含裕度，空調／製程裕度預設 1.0，避免重複計算。</p><div class="tbl-wrap"><table class="t ptab" id="pDemand"></table></div></details>
         </div>
         <div class="card" id="fixtureCard">
           <h2>衛生器具（尖峰流量）</h2>
@@ -337,17 +352,37 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
 
       <!-- 3 進水與儲水 -->
       <section class="pane" data-pane="supply" hidden>
-        <div class="card"><h2>進水管口徑</h2><p class="sub" id="svcSub"></p><div id="outService"></div></div>
+        <div class="storebar" id="storeBar"></div>
+        <div class="card">
+          <h2>進水管口徑與基地供水能力</h2>
+          <p class="sub" id="svcSub"></p>
+          <div class="grid">
+            <div class="f"><label for="supCap">基地供水上限 m³/日（選填）</label><input type="number" id="supCap" min="0" step="1" data-bind="supplyCapDay" data-null="1"><div class="hint">供水單位或業主提供；填入後檢查日設計用水量是否超過，並算水箱補滿天數</div></div>
+            <div class="f"><label for="supCapFire">消防補水 m³/日（選填，另計）</label><input type="number" id="supCapFire" min="0" step="1" data-bind="supplyCapFire" data-null="1"><div class="hint">不計入日設計用水量；用來估消防水箱補滿天數</div></div>
+            <div class="f" id="svcBasisF"><label for="svcBasis">進水管流量基準</label><select id="svcBasis"><option value="storage">儲水補水：Vd 24 h 均勻進水（預設）</option><option value="peak">尖峰直供：生活尖峰 + 空調最大時</option></select><div class="hint">有水箱時市政進水只需補水箱，尖峰由水箱後泵浦承擔</div></div>
+          </div>
+          <div id="outService"></div>
+        </div>
         <div class="card">
           <h2>水池與水箱</h2>
-          <p class="sub">儲水量取「法規下限」與「備援時數需求」的較大者。生活用水與空調補水分開設置：冷卻塔屬高危害交叉連接，空調補水要經空氣間隙的 Break tank 與飲用水隔開。消防水源由消防組計算，獨立水池，不與生活水混用。</p>
+          <p class="sub">每一種水箱（受水箱、生活、空調、消防…）各自設定：容量規則決定「需要多少」，單顆長寬高決定「切成幾顆」。生活與空調補水分開設置：冷卻塔屬高危害交叉連接，空調補水要經空氣間隙的 Break tank 與飲用水隔開。消防水箱容量由消防組提供，工具只收數字。</p>
           <div class="grid">
             <div class="f" id="totPctF"><label for="totPct">水池＋水塔合計下限</label>
               <select id="totPct"><option value="40">40%（自來水用戶用水設備標準 §6 法定下限）</option><option value="100">100%（一日）</option><option value="200">200%（二日，§6 上限）</option><option value="300">300%（部分台水區處審查表所列）</option></select></div>
-            <div class="f"><label for="fire">消防水源 m³（消防組提供）</label><input type="number" id="fire" min="0" step="1" data-bind="fireVolume"></div>
             <div class="f" id="adoptVGF"><label for="adoptVG">實際採用 蓄水池 VG m³（選填）</label><input type="number" id="adoptVG" min="0" step="1" data-bind="adoptVG"></div>
             <div class="f" id="adoptVTF"><label for="adoptVT">實際採用 水塔 VT m³（選填）</label><input type="number" id="adoptVT" min="0" step="1" data-bind="adoptVT"></div>
           </div>
+          <h3>水箱設定</h3>
+          <div class="tbl-wrap"><table class="t tank-tbl" id="tankTbl"></table></div>
+          <div class="btnrow">
+            <button type="button" class="addrow" id="addTank">＋ 新增水箱</button>
+            <button type="button" class="addrow" id="tplTank4" title="受水箱 → 生活／空調／消防水箱">載入範本：受水箱＋生活＋空調＋消防</button>
+            <button type="button" class="addrow" id="tplTank3" title="與舊版相同：生活、空調、消防三個水池">恢復預設：生活＋空調＋消防</button>
+          </div>
+          <p class="hint" style="margin:6px 0 0">「顆數」選「由尺寸算」＝依需求容量 ÷ 單顆淨容量（長×寬×(高−乾舷)）進位；選「指定」＝你直接填顆數，工具回報每顆需要多大。尺寸預設值只是佔位，請依實際水箱規格修改。</p>
+          <h3>計算結果</h3>
+          <div class="tbl-wrap"><table class="t" id="tankRes"></table></div>
+          <div id="tankTodo"></div>
           <div id="outStorage"></div>
           <details class="more"><summary>儲水相關設計參數（可覆寫）</summary><div class="tbl-wrap"><table class="t ptab" id="pStorage"></table></div></details>
         </div>
@@ -365,7 +400,7 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
               <p><b>自填 L/min</b>：選「自填」時，這一欄就是直接輸入流量（公升／分鐘），不是百分比。</p>
               <p><b>靜揚程</b>：水從水池水面抬升到最高用水點的高低差（m）。<u>留空＝自動</u>，由「5 系統昇位與管徑」的樓層高度推算。<b>末端壓力</b>：最高處器具所需的剩餘水壓（m 水柱），留空＝依法規預設（一般水栓 3 m、沖水閥 10 m）。<b>用＋備</b>：運轉台數＋備用台數，例如 1+1。</p>
             </div></details>
-          <div class="tbl-wrap"><table class="t" id="pumpTbl"><thead><tr><th>名稱</th><th>流量來源</th><th title="這組泵負責該類流量的幾 % ；選『自填』時為直接輸入 L/min">分配比例 %<br><span style="font-weight:400">（自填時為 L/min）</span></th><th>靜揚程 m<br><span style="font-weight:400">（空白＝自動）</span></th><th>管長 m</th><th>末端壓力 m<br><span style="font-weight:400">（空白＝法規預設）</span></th><th>用＋備</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div class="tbl-wrap"><table class="t" id="pumpTbl"><thead><tr><th>名稱</th><th>流量來源</th><th title="這組泵負責該類流量的幾 % ；選『自填』時為直接輸入 L/min">分配比例 %<br><span style="font-weight:400">（自填時為 L/min）</span></th><th>靜揚程 m<br><span style="font-weight:400">（空白＝自動）</span></th><th>管長 m</th><th>末端壓力 m<br><span style="font-weight:400">（空白＝法規預設）</span></th><th>用＋備</th><th title="選吸水水箱＝取其最低有效水位標高；或直接填標高 m。靜揚程留空時，與出水點標高相減得靜揚程">吸水來源<br><span style="font-weight:400">（水箱／標高 m）</span></th><th title="轉輸泵：選出水（目標）水箱＝流量取其下游最大時需求；或直接填出水點標高 m">出水目標<br><span style="font-weight:400">（水箱／標高 m）</span></th><th></th></tr></thead><tbody></tbody></table></div>
           <button type="button" class="addrow" id="addPump">＋ 新增泵組</button>
           <div id="outPumps"></div>
           <details class="more"><summary>泵浦與管路設計參數（可覆寫）</summary><div class="tbl-wrap"><table class="t ptab" id="pPump"></table></div></details>
@@ -390,9 +425,14 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
         <div class="card">
           <h2>建築與管路條件</h2>
           <p class="sub">告訴工具「水要往上送幾層、管子大約多長」，它就會從市水引入管開始，一路算到每層的末端器具：每一段管的流量、管徑、流速與摩擦損失，以及頂層水龍頭還剩多少水壓。這些條件只影響本頁與泵浦的靜揚程（泵組表靜揚程留空時自動採用）。</p>
+          <div class="seg" id="layoutSeg" role="group" aria-label="建築配置" style="margin-bottom:10px">
+            <button type="button" data-layout="multistory">多層樓（泵送到各層）</button>
+            <button type="button" data-layout="flat">平鋪式（單層／低矮廠房）</button>
+          </div>
+          <p class="sub" id="layoutNote" style="margin-top:0"></p>
           <div class="grid">
-            <div class="f"><label for="nFloors">服務樓層數（地上）</label><input type="number" id="nFloors" min="1" max="60" step="1" data-bind="net.floors"><div class="hint">生活立管服務的樓層；各層器具與負荷假設均分</div></div>
-            <div class="f"><label for="nFloorH">樓層高度 m</label><input type="number" id="nFloorH" min="2" step="0.1" data-bind="net.floorH"></div>
+            <div class="f" id="nFloorsF"><label for="nFloors">服務樓層數（地上）</label><input type="number" id="nFloors" min="1" max="60" step="1" data-bind="net.floors"><div class="hint">生活立管服務的樓層；各層器具與負荷假設均分</div></div>
+            <div class="f" id="nFloorHF"><label for="nFloorH">樓層高度 m</label><input type="number" id="nFloorH" min="2" step="0.1" data-bind="net.floorH"></div>
             <div class="f"><label for="nBasement">泵房／水池底在地面下 m</label><input type="number" id="nBasement" min="0" step="0.5" data-bind="net.basement"><div class="hint">泵浦所在標高 = −此值（地面層 ±0）</div></div>
             <div class="f"><label for="nTermH">末端器具接管高度 m</label><input type="number" id="nTermH" min="0" step="0.1" data-bind="net.termH"><div class="hint">距該層樓板；水龍頭、沖水閥約 1.0–1.2 m</div></div>
             <div class="f"><label for="nLenMain">市水引入管長 m</label><input type="number" id="nLenMain" min="0" step="1" data-bind="net.lenMain"></div>
@@ -400,7 +440,7 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
             <div class="f"><label for="nLenBr">每層橫支管最遠長度 m</label><input type="number" id="nLenBr" min="0" step="1" data-bind="net.lenBranch"></div>
             <div class="f"><label for="nLenTerm">器具接管長度 m</label><input type="number" id="nLenTerm" min="0" step="0.5" data-bind="net.lenTerm"></div>
           </div>
-          <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px"><input type="checkbox" id="nRoofHvac"> 空調補水立管送到屋頂（冷卻塔在屋頂時勾選）</label>
+          <label id="nRoofHvacL" style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px"><input type="checkbox" id="nRoofHvac"> 空調補水立管送到屋頂（冷卻塔在屋頂時勾選）</label>
         </div>
         <div class="card">
           <h2>系統昇位與管徑圖（System Flow）</h2>
@@ -424,7 +464,10 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
           <p class="sub">填入水源的水質報告數值（自來水公司淨水場公告或實驗室檢驗報告），或載入下方的公開資料。工具會依「用途」分別比對基準，並列出報價時該不該編列水處理設備。沒有的數值留空，工具會標示「請廠商確認」而不是假設。</p>
           <div class="grid" style="margin-bottom:10px">
             <div class="f"><label for="wqPreset">載入公開水質資料</label><select id="wqPreset"><option value="">— 自行輸入 —</option></select><div class="hint" id="wqPresetNote"></div></div>
+            <div class="f"><label for="wqPotable">生活回路飲用水基準</label><select id="wqPotable"></select><div class="hint" id="wqPotableNote"></div></div>
+            <div class="f"><label for="wqCircBasis">冷卻塔循環水基準</label><select id="wqCircBasis"></select><div class="hint" id="wqCircNote"></div></div>
           </div>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:0 0 10px"><input type="checkbox" id="wqPremix" style="margin-top:3px"> <span>二次側 TCS 採「預混冷卻液」（由冷卻液廠商供應，不在現場用 RO／DI 製備）<span class="hint" style="display:block">不勾選時，報價提醒會列出 TCS 充水製備（RO＋DI＋精密過濾）。TCS 規格由空調組與 CDU／冷卻液廠商決定。</span></span></label>
           <div class="grid">
             <div class="f"><label for="wq_ph">pH</label><input type="number" id="wq_ph" step="0.1" data-bind="wq.ph"></div>
             <div class="f"><label for="wq_ec">導電度 µS/cm</label><input type="number" id="wq_ec" step="1" data-bind="wq.ec" data-null="1"></div>
@@ -449,6 +492,9 @@ td.ok{color:var(--good);font-weight:700} td.ng{color:var(--bad);font-weight:700}
           <h3>冷卻塔不加藥可達濃縮倍數</h3>
           <div class="tbl-wrap"><table class="t" id="wqTbl"></table></div>
           <div id="outWQ"></div>
+          <h3>循環水濃度直接比較</h3>
+          <div id="wqCircCap" class="sub"></div>
+          <div class="tbl-wrap"><table class="t" id="wqCirc"></table></div>
           <h3>二次側 TCS／設施水充水 <span class="scope">空調組 SCOPE · 介面資訊</span></h3>
           <div id="wqTcs" class="sub"></div>
         </div>
@@ -525,8 +571,29 @@ const PR = window.AIDC_PROFILES, EN = window.AIDC_ENGINE, OX = window.AIDC_OOXML
 const { SOURCES, REGIONS, FIXTURES_IPC, TW_ZONES, WQ } = PR;
 const $ = id => document.getElementById(id);
 const esc = s => String(s===null||s===undefined?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmt = (x, d) => (typeof x === 'number' && isFinite(x)) ? x.toLocaleString('en-US', {minimumFractionDigits: d===undefined?2:d, maximumFractionDigits: d===undefined?2:d}) : '—';
+const fmt = (x, d) => (typeof x === 'number' && isFinite(x)) ? (x === 0 || Math.abs(x) < 1e-9 ? 0 : x).toLocaleString('en-US', {minimumFractionDigits: d===undefined?2:d, maximumFractionDigits: d===undefined?2:d}) : '—';
 const TIER = { law:'法規', std:'標準／技術規範', gov:'主管機關', guide:'產業指引', phys:'物理推導', assume:'工程假設', owner:'業主基準', user:'使用者輸入' };
+
+/* ══════════ 水箱預設 ══════════ */
+const TANK_DIMS = () => ({ L: 5, W: 5, H: 2, freeboard: 0.5, wall: 0 });
+/* 與舊版等價：生活、空調、消防三個水池；hours／fixedCells 留空＝沿用「備援時數」「水池分格數」參數 */
+function defaultTanks3(){
+  return [
+    { id: 't_dom', name: '生活水池', role: 'domestic', feed: 'mains', ruleMode: 'hours', hours: null, pctVd: 20, fixedVolume: null, dims: TANK_DIMS(), cellsMode: 'fixed', fixedCells: null, redundancy: 'none', keepHours: 24, minCells: 1, zLow: null },
+    { id: 't_hvac', name: '空調水池', role: 'hvac', feed: 'mains', ruleMode: 'hours', hours: null, pctVd: 20, fixedVolume: null, dims: TANK_DIMS(), cellsMode: 'fixed', fixedCells: null, redundancy: 'none', keepHours: 24, minCells: 1, zLow: null },
+    { id: 't_fire', name: '消防水池', role: 'fire', feed: 'mains', ruleMode: 'fixed', hours: null, pctVd: 20, fixedVolume: 0, dims: TANK_DIMS(), cellsMode: 'fixed', fixedCells: 1, redundancy: 'none', keepHours: 24, minCells: 1, zLow: null },
+  ];
+}
+/* 範本：沿用過往專案水流——市政水 → 受水箱；生活／空調／消防水箱由受水箱供水。尺寸與受水箱容量規則均為佔位值 */
+function defaultTanks4(){
+  const T = (o) => Object.assign({ feed: 't_recv', ruleMode: 'hours', hours: null, pctVd: 20, fixedVolume: null, dims: TANK_DIMS(), cellsMode: 'byDims', fixedCells: null, redundancy: 'none', keepHours: 24, minCells: 2, zLow: null }, o);
+  return [
+    T({ id: 't_recv', name: '受水箱', role: 'receiving', feed: 'mains', ruleMode: 'pctVd', pctVd: 20 }),
+    T({ id: 't_dom', name: '生活水箱', role: 'domestic' }),
+    T({ id: 't_hvac', name: '空調水箱', role: 'hvac' }),
+    T({ id: 't_fire', name: '消防水箱', role: 'fire', ruleMode: 'fixed', fixedVolume: 0, cellsMode: 'fixed', fixedCells: 1, minCells: 1 }),
+  ];
+}
 
 /* ══════════ 預設：示範案例（非實際專案）══════════ */
 const DEFAULTS = {
@@ -537,13 +604,15 @@ const DEFAULTS = {
   domestic: { twRows: [{ type: 'office', area: 800 }], occupants: 80, fixtures: { wc_fv: 8, ur_fv3: 4, lav: 8, ss: 2, df: 2 }, flushValve: null, peakLpm: 150 },
   others: [],
   fireVolume: 0, adoptVG: null, adoptVT: null,
+  supplyCapDay: null, supplyCapFire: null, svcBasis: 'storage',
+  tanks: defaultTanks3(),
   pumps: [
     { name: '生活給水加壓泵', kind: 'domestic', share: 100, static: null, length: 150, residual: null, duty: 1, standby: 1 },
     { name: '空調補水泵', kind: 'hvac', share: 100, static: null, length: 200, residual: 15, duty: 1, standby: 1 },
   ],
-  net: { enable: true, floors: 3, floorH: 4.5, basement: 4, termH: 1.2, lenMain: 50, lenHdr: 30, lenBranch: 35, lenTerm: 8, roofHvac: true },
+  net: { enable: true, layout: 'multistory', floors: 3, floorH: 4.5, basement: 4, termH: 1.2, lenMain: 50, lenHdr: 30, lenBranch: 35, lenTerm: 8, roofHvac: true },
   twcHead: { enable: false, building: 10.9, L: 12, D: 150, V: 1.6, vt: 0 },
-  wq: Object.assign({ preset: 'fongshan_20260810' }, pickWQ(WQ.presets.fongshan_20260810)),
+  wq: Object.assign({ preset: 'fongshan_20260810', potableBasis: '', circBasis: 'jra', tcsPremix: false }, pickWQ(WQ.presets.fongshan_20260810)),
   over: {}, confirm: {},
 };
 function pickWQ(p){ const o={}; ['ph','ec','tds','hard','alk','cl','so4','sio2','turb'].forEach(k=>o[k]=p[k]===undefined?null:p[k]); return o; }
@@ -561,7 +630,10 @@ function diff(a, b){ if (JSON.stringify(a)===JSON.stringify(b)) return undefined
   return a; }
 function merge(base, d){ if (d===undefined) return base; if (base && d && typeof base==='object' && typeof d==='object' && !Array.isArray(d)) { Object.keys(d).forEach(k=>{ base[k]=merge(base[k], d[k]); }); return base; } return d; }
 const b64e = s => btoa(unescape(encodeURIComponent(s))), b64d = s => decodeURIComponent(escape(atob(s)));
-function readHash(){ const m = location.hash.match(/s=([^&]+)/); if(!m) return; try { const d = JSON.parse(b64d(decodeURIComponent(m[1]))); delete d.confirm; state = merge(clone(DEFAULTS), d); if(!REGIONS[state.region]) state.region='TW'; } catch(e){ /* 連結損毀時使用預設值 */ } }
+function readHash(){ const m = location.hash.match(/s=([^&]+)/); if(!m) return; try { const d = JSON.parse(b64d(decodeURIComponent(m[1]))); delete d.confirm; state = merge(clone(DEFAULTS), d); if(!REGIONS[state.region]) state.region='TW';
+    /* 舊連結沒有 tanks：以預設的等價水箱承接舊欄位（over.compartments／domHours／coolHours 仍由參數沿用；消防容量取舊 fireVolume） */
+    if (!d.tanks) { const fr = state.tanks.find(t => t.role === 'fire'); if (fr) fr.fixedVolume = Number(state.fireVolume) || 0; }
+  } catch(e){ /* 連結損毀時使用預設值 */ } }
 let hashT = null;
 function shareURL(){ const d = diff(state, DEFAULTS) || {}; delete d.confirm; delete d.tab; const s = Object.keys(d).length ? '#s=' + encodeURIComponent(b64e(JSON.stringify(d))) : ''; return location.href.split('#')[0] + s; }
 function writeHash(){ clearTimeout(hashT); hashT = setTimeout(()=>{ try{ history.replaceState(null,'',shareURL()); }catch(e){} }, 300); }
@@ -577,6 +649,7 @@ function engineInput(){
     region: s.region, twMode: s.twMode, zonedSupply: s.zonedSupply,
     cooling: s.cooling, domestic: s.domestic, others: s.others,
     fireVolume: s.fireVolume, adoptVG: s.adoptVG, adoptVT: s.adoptVT,
+    tanks: s.tanks, supplyCapDay: s.supplyCapDay, supplyCapFire: s.supplyCapFire, svcBasis: s.svcBasis,
     pumps: s.pumps, twcHead: s.twcHead, wq: s.wq, over: s.over, net: s.net,
   };
 }
@@ -611,7 +684,7 @@ const PARAM_LABEL = {
   vMax:['管內流速上限','m/s'], gradMax:['摩擦梯度上限','m/100m'], hwC:['Hazen-Williams C','—'], fittingPct:['管件當量長度加成','%'],
   pumpEff:['泵浦效率','—'], pumpMargin:['馬達裕度','—'], resGeneral:['末端壓力（一般器具）','m'], resFlushValve:['末端壓力（沖水閥）','m'],
   minBranchDN:['器具接管最小口徑 DN','mm'], minFlushDN:['沖水閥接管最小口徑 DN','mm'], totMaxDays:['水池＋水塔合計上限','日'], twSF:['台水安全係數（手動）','—'],
-  peakK:['瞬時尖峰係數','—'], useHours:['使用時間','h'], perCapLpd:['每人日用水量','L/人·日'], designMargin:['設計裕度','—'], hvacPeak:['空調補水尖峰係數','—'], driftPct:['飛濺率','%'], evapRule:['蒸發率','1/°C'],
+  peakK:['瞬時尖峰係數','—'], useHours:['使用時間','h'], perCapLpd:['每人日用水量','L/人·日'], designMargin:['設計裕度（舊）','—'], designMarginDom:['生活用水設計裕度','—'], designMarginProc:['空調／製程設計裕度','—'], maxCellVolume:['單顆水箱容量上限','m³'], hvacPeak:['空調補水尖峰係數','—'], driftPct:['飛濺率','%'], evapRule:['蒸發率','1/°C'],
 };
 function baseOf(k){ try { const mp = EN.makeParams(REGIONS[state.region], owner, {}); const v = mp.P(k); return mp.used[k] ? { v, src: mp.used[k].src } : null; } catch(e){ return null; } }
 function overrides(){ return Object.keys(state.over).map(k => { const lab = PARAM_LABEL[k] || [k, '']; return { k, label: lab[0], unit: lab[1], v: state.over[k], base: baseOf(k), used: !!(R && R.params[k] && R.params[k].src === 'user') }; }); }
@@ -654,6 +727,10 @@ function paintInputs(){
   $('totPct').value = String(state.over.totMinPct || 40);
   $('twcEnable').checked = !!state.twcHead.enable;
   $('wqPreset').value = state.wq.preset || '';
+  $('svcBasis').value = state.svcBasis || 'storage';
+  $('wqPotable').value = state.wq.potableBasis || '';
+  $('wqCircBasis').value = state.wq.circBasis || 'jra';
+  $('wqPremix').checked = !!state.wq.tcsPremix;
   const pr = wqPresetList()[state.wq.preset]; $('wqPresetNote').textContent = pr ? (pr.note||'') : '';
 }
 
@@ -697,27 +774,131 @@ function buildFixtures(){
     tb.appendChild(tr);
   });
 }
+/* ══════════ 水箱表格 ══════════ */
+const ROLE_LABEL = { receiving: '受水箱', domestic: '生活', hvac: '空調補水', fire: '消防', custom: '自訂' };
+const numOrNull = v => { if (v === null || v === undefined) return null; const t = String(v).trim(); if (t === '') return null; const n = Number(t); return isFinite(n) ? n : null; };
+const optHTML = (list, cur) => list.map(([v, l]) => `<option value="${esc(v)}"${String(cur) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('');
+function newTankId(){ let i = 1; while (state.tanks.some(t => t.id === 't' + i)) i++; return 't' + i; }
+function tankOptions(selfId, withMains){
+  return (withMains ? [['mains', '市政水']] : []).concat(state.tanks.filter(t => t.id !== selfId).map(t => [t.id, t.name || t.id]));
+}
+function buildTanks(){
+  const el = $('tankTbl');
+  el.innerHTML = '<thead><tr><th>名稱／角色</th><th>水源</th><th>容量規則</th><th title="單顆淨容量 = 長 × 寬 × (高 − 乾舷)">單顆尺寸 m<br><span style="font-weight:400">長 × 寬 × 高；乾舷</span></th><th>顆數</th><th title="無＝不留備援；一顆停用仍維持全量＝多設一顆；一顆停用維持時數＝停一顆時剩餘容量至少撐 N 小時">備援</th><th title="平鋪式：泵浦吸水標高取此值；留空＝不設">最低有效水位標高 m</th><th></th></tr></thead><tbody></tbody>';
+  const tb = el.tBodies[0];
+  state.tanks.forEach((t, i) => {
+    t.dims = t.dims || { L: 0, W: 0, H: 0, freeboard: 0.5, wall: 0 };
+    const tr = document.createElement('tr');
+    const rule = t.ruleMode || 'hours';
+    const ruleVal = rule === 'hours' ? t.hours : rule === 'pctVd' ? t.pctVd : t.fixedVolume;
+    const rulePh = rule === 'hours' ? '沿用參數' : '';
+    const byDims = t.cellsMode === 'byDims';
+    tr.innerHTML = `
+      <td><div class="stack"><input type="text" value="${esc(t.name)}" aria-label="水箱名稱" style="min-width:110px"><select aria-label="角色">${optHTML(Object.entries(ROLE_LABEL), t.role)}</select></div></td>
+      <td><select aria-label="水源" style="min-width:96px">${optHTML(tankOptions(t.id, true), t.feed || 'mains')}</select></td>
+      <td><div class="stack"><select aria-label="容量規則" style="min-width:130px">${optHTML([['hours', '備援時數 h'], ['pctVd', '占 Vd 比例 %'], ['fixed', '指定容量 m³']], rule)}</select><input type="number" min="0" step="any" value="${ruleVal === null || ruleVal === undefined ? '' : ruleVal}" placeholder="${rulePh}" aria-label="容量規則數值">${t.role === 'custom' ? `<input type="number" min="0" step="any" value="${t.demand === undefined || t.demand === null ? '' : t.demand}" placeholder="日需求 m³/d" aria-label="自訂水箱的下游日需求 m³/d">` : ''}</div></td>
+      <td><div class="stack"><div class="dims${byDims ? '' : ' off'}"><input type="number" min="0" step="any" value="${t.dims.L}" aria-label="單顆長 m" placeholder="長"><input type="number" min="0" step="any" value="${t.dims.W}" aria-label="單顆寬 m" placeholder="寬"><input type="number" min="0" step="any" value="${t.dims.H}" aria-label="單顆高 m" placeholder="高"></div><input type="number" min="0" step="any" value="${t.dims.freeboard}" aria-label="乾舷 m" placeholder="乾舷 m" style="max-width:96px"></div></td>
+      <td><div class="stack"><select aria-label="顆數方式" style="min-width:104px">${optHTML([['byDims', '由尺寸算'], ['fixed', '指定顆數']], byDims ? 'byDims' : 'fixed')}</select>${byDims
+          ? `<input type="number" min="1" step="1" value="${t.minCells === null || t.minCells === undefined ? '' : t.minCells}" placeholder="最少顆數" aria-label="最少顆數">`
+          : `<input type="number" min="1" step="1" value="${t.fixedCells === null || t.fixedCells === undefined ? '' : t.fixedCells}" placeholder="沿用分格數" aria-label="指定顆數">`}</div></td>
+      <td><div class="stack"><select aria-label="備援方式" style="min-width:120px">${optHTML([['none', '無'], ['keepFull', '一顆停用仍維持全量'], ['keepHours', '一顆停用維持 N 小時']], t.redundancy || 'none')}</select>${t.redundancy === 'keepHours' ? `<input type="number" min="0" step="any" value="${t.keepHours === null || t.keepHours === undefined ? 24 : t.keepHours}" aria-label="維持時數 h" placeholder="h">` : ''}</div></td>
+      <td><input type="number" step="any" value="${t.zLow === null || t.zLow === undefined ? '' : t.zLow}" placeholder="—" aria-label="最低有效水位標高 m"></td>
+      <td><button class="rm" type="button" aria-label="刪除水箱">×</button></td>`;
+    const q = sel => tr.querySelector(sel);
+    const sels = tr.querySelectorAll('select');                // role, feed, rule, cellsMode, redundancy
+    const stacks = tr.querySelectorAll('.stack');
+    const nameIn = tr.querySelector('input[type=text]');
+    nameIn.oninput = () => { t.name = nameIn.value; render(true); buildPumps(); };
+    sels[0].onchange = () => { t.role = sels[0].value; if (t.role === 'fire') { t.ruleMode = 'fixed'; t.cellsMode = t.cellsMode || 'fixed'; } else if (t.role === 'receiving' && t.ruleMode === 'hours') t.ruleMode = 'pctVd'; buildTanks(); render(true); };
+    sels[1].onchange = () => { t.feed = sels[1].value; render(true); };
+    sels[2].onchange = () => { t.ruleMode = sels[2].value; if (t.ruleMode === 'pctVd' && !(t.pctVd > 0)) t.pctVd = 20; if (t.ruleMode === 'fixed' && (t.fixedVolume === null || t.fixedVolume === undefined)) t.fixedVolume = 0; buildTanks(); render(true); };
+    const ruleIn = stacks[1].querySelectorAll('input')[0];
+    ruleIn.oninput = () => { const n = numOrNull(ruleIn.value); if (t.ruleMode === 'hours') t.hours = n; else if (t.ruleMode === 'pctVd') { if (n !== null) t.pctVd = n; } else t.fixedVolume = n === null ? 0 : n; render(true); };
+    const demIn = stacks[1].querySelectorAll('input')[1];
+    if (demIn) demIn.oninput = () => { t.demand = numOrNull(demIn.value) || 0; render(true); };
+    const dimIns = stacks[2].querySelectorAll('input');       // L W H freeboard
+    ['L', 'W', 'H', 'freeboard'].forEach((k, j) => { dimIns[j].oninput = () => { const n = numOrNull(dimIns[j].value); t.dims[k] = n === null ? 0 : n; render(true); }; });
+    sels[3].onchange = () => { t.cellsMode = sels[3].value; buildTanks(); render(true); };
+    const cellIn = stacks[3].querySelectorAll('input')[0];
+    cellIn.oninput = () => { const n = numOrNull(cellIn.value); if (t.cellsMode === 'byDims') t.minCells = n; else t.fixedCells = n; render(true); };
+    sels[4].onchange = () => { t.redundancy = sels[4].value; if (t.redundancy === 'keepHours' && !(t.keepHours > 0)) t.keepHours = 24; buildTanks(); render(true); };
+    const keepIn = stacks[4].querySelectorAll('input')[0];
+    if (keepIn) keepIn.oninput = () => { const n = numOrNull(keepIn.value); t.keepHours = n === null ? 24 : n; render(true); };
+    const zIn = tr.querySelectorAll('td')[6].querySelector('input');
+    zIn.oninput = () => { t.zLow = numOrNull(zIn.value); render(true); };
+    q('.rm').onclick = () => removeTank(i);
+    tb.appendChild(tr);
+  });
+}
+function cleanTankRefs(){
+  const ids = new Set(state.tanks.map(t => t.id));
+  state.tanks.forEach(t => { if (t.feed && t.feed !== 'mains' && !ids.has(t.feed)) t.feed = 'mains'; });
+  state.pumps.forEach(z => { if (z.from && !ids.has(z.from)) z.from = null; if (z.to && !ids.has(z.to)) z.to = null; });
+}
+function removeTank(i){ state.tanks.splice(i, 1); cleanTankRefs(); buildTanks(); buildPumps(); render(true); }
+function setTanks(list){
+  const fire = state.tanks.find(t => t.role === 'fire');
+  if (fire) { const nf = list.find(t => t.role === 'fire'); if (nf) nf.fixedVolume = fire.fixedVolume; }
+  state.tanks = list; cleanTankRefs(); buildTanks(); buildPumps(); render(true);
+}
+function paintTanks(){
+  const T = R.tanks || [], s = R.storage;
+  const noteFor = t => {
+    if (t.cellsMode === 'fixed' && t.vreq > 0) return `<div class="qnote" style="white-space:normal">指定 ${t.n} 顆 → 每顆需 ${fmt(t.vu, t.vu >= 100 ? 0 : 1)} m³；水深 ${fmt(t.sqDepth, 1)} m 的正方形邊長 ≈ ${t.sqSide ? fmt(t.sqSide, 1) : '—'} m</div>`;
+    return '';
+  };
+  $('tankRes').innerHTML = '<thead><tr><th>水箱</th><th>下游日需求 m³/d</th><th>需求容量 m³</th><th>單顆淨容量 m³</th><th>顆數</th><th>安裝合計 m³</th><th title="一顆停用時，其餘水箱可支應下游用水的時數">一顆停用可支應 h</th><th>淨占地 m²</th><th>利用率</th></tr></thead><tbody>' +
+    T.map(t => `<tr><td><b>${esc(t.name)}</b> <span class="scope">${esc(ROLE_LABEL[t.role] || t.role)}</span>${noteFor(t)}</td><td class="r">${t.role === 'fire' ? '—' : fmt(t.D, 1)}</td><td class="r">${fmt(t.vreq, 1)}</td><td class="r">${fmt(t.vu, t.vu >= 100 ? 0 : 1)}</td><td class="r${t.n > 30 ? ' ng' : ''}">${t.n}</td><td class="r">${fmt(t.vins, 0)}</td><td class="r">${t.hout === null ? '—' : fmt(t.hout, 1)}</td><td class="r">${t.area === null ? '—' : fmt(t.area, 0)}</td><td class="r">${t.vreq > 0 && t.vins > 0 ? fmt(t.vreq / t.vins * 100, 0) + '%' : '—'}</td></tr>`).join('') +
+    `<tr><td><b>合計（不含消防）</b></td><td></td><td></td><td></td><td></td><td class="r"><b>${fmt(s.total, 0)}</b></td><td></td><td class="r">${s.area ? fmt(s.area, 0) : '—'}</td><td></td></tr></tbody>`;
+  // 總覽列
+  let h = `<span>全廠儲水 <b>${fmt(s.total, 0)} m³</b>${s.days ? `（≈ ${fmt(s.days, 1)} 日 Vd）` : ''}</span>`;
+  if (s.area) h += `<span>水箱淨占地 <b>${fmt(s.area, 0)} m²</b></span>`;
+  if (s.fire) h += `<span>消防 <b>${fmt(s.fire, 0)} m³</b>（另計）</span>`;
+  if (R.supply) {
+    h += R.supply.gap > 1e-9 ? `<span class="bad">日設計用水量超過供水上限 ${fmt(R.supply.gap, 0)} m³/日（${fmt(R.supply.pct, 1)}%）</span>` : `<span class="okc">日設計用水量未超過供水上限</span>`;
+    if (R.supply.tFill) h += `<span>用空後補滿約 <b>${fmt(R.supply.tFill, 1)} 日</b></span>`;
+  }
+  $('storeBar').innerHTML = h;
+  // 待確認清單
+  const todo = [];
+  state.tanks.forEach(t => { if (t.role === 'receiving' && (t.ruleMode || 'pctVd') === 'pctVd') todo.push(`「${esc(t.name)}」容量規則暫用 ${esc(t.pctVd)}% Vd 佔位（受水箱規則待業主／過往專案確認）`); });
+  const mc = R.params.maxCellVolume; if (!mc || !(Number(mc.v) > 0)) todo.push('單顆水箱容量上限尚未設定（填入過往專案或廠商上限後才檢查單顆是否超過；在下方「儲水相關設計參數」覆寫）');
+  if (state.tanks.some(t => t.cellsMode === 'byDims' && t.dims && t.dims.L === 5 && t.dims.W === 5 && t.dims.H === 2)) todo.push('部分水箱的單顆尺寸仍是預設佔位值 5 × 5 × 2 m，請改為實際規格');
+  if (state.tanks.some(t => t.redundancy && t.redundancy !== 'none')) todo.push('備援方式（一顆停用仍維持全量／維持 N 小時）的採用基準待業主確認');
+  $('tankTodo').innerHTML = todo.length ? `<div class="todo"><b>待確認<span class="tag-todo">待確認</span></b><ul>${todo.map(x => `<li>${x}</li>`).join('')}</ul></div>` : '';
+}
+
 function buildPumps(){
   const tb = $('pumpTbl').tBodies[0]; tb.innerHTML = '';
+  const tOpts = cur => `<option value="">— 無／樓層模型 —</option>` + optHTML(state.tanks.map(t => [t.id, t.name || t.id]), cur);
   state.pumps.forEach((z, i) => {
     const tr = document.createElement('tr');
     const qv = z.kind==='manual' ? (z.qLpm||0) : (z.share===undefined?100:z.share);
+    const isTr = z.kind === 'transfer';
     tr.innerHTML = `<td><input type="text" value="${esc(z.name)}" aria-label="名稱" style="min-width:120px"></td>
-      <td><select aria-label="流量來源" style="min-width:112px"><option value="domestic"${z.kind==='domestic'?' selected':''}>生活尖峰</option><option value="hvac"${z.kind==='hvac'?' selected':''}>空調補水</option><option value="manual"${z.kind==='manual'?' selected':''}>自填 L/min</option></select></td>
-      <td><input type="number" min="0" step="any" value="${qv}" aria-label="分配比例（%）或流量（L/min）" style="max-width:90px"><span class="qnote" data-c="qn"></span></td>
-      <td><input type="number" step="any" value="${z.static===null||z.static===undefined?'':z.static}" placeholder="自動" aria-label="靜揚程（空白＝自動）" style="max-width:80px"><span class="qnote" data-c="hn"></span></td>
-      <td><input type="number" min="0" step="any" value="${z.length}" aria-label="管長" style="max-width:80px"></td>
-      <td><input type="number" min="0" step="any" value="${z.residual===null||z.residual===undefined?'':z.residual}" placeholder="自動" aria-label="末端所需壓力" style="max-width:80px"></td>
-      <td><input type="text" value="${z.duty||1}+${z.standby===undefined?1:z.standby}" aria-label="用機加備機" style="max-width:60px"></td>
+      <td><select aria-label="流量來源" style="min-width:112px"><option value="domestic"${z.kind==='domestic'?' selected':''}>生活尖峰</option><option value="hvac"${z.kind==='hvac'?' selected':''}>空調補水</option><option value="transfer"${isTr?' selected':''}>轉輸泵（水箱→水箱）</option><option value="manual"${z.kind==='manual'?' selected':''}>自填 L/min</option></select></td>
+      <td><input type="number" min="0" step="any" value="${qv}" aria-label="分配比例（%）或流量（L/min）"><span class="qnote" data-c="qn"></span></td>
+      <td><input type="number" step="any" value="${z.static===null||z.static===undefined?'':z.static}" placeholder="自動" aria-label="靜揚程（空白＝自動）"><span class="qnote" data-c="hn"></span></td>
+      <td><input type="number" min="0" step="any" value="${z.length}" aria-label="管長"></td>
+      <td><input type="number" min="0" step="any" value="${z.residual===null||z.residual===undefined?'':z.residual}" placeholder="自動" aria-label="末端所需壓力"></td>
+      <td><input type="text" value="${z.duty||1}+${z.standby===undefined?1:z.standby}" aria-label="用機加備機" style="min-width:64px"><span class="qnote" data-c="dn"></span></td>
+      <td><div class="stack"><select aria-label="吸水來源水箱">${tOpts(z.from)}</select><input type="number" step="any" value="${z.zFrom===null||z.zFrom===undefined?'':z.zFrom}" placeholder="或填標高 m" aria-label="吸水水位標高 m"></div></td>
+      <td><div class="stack"><select aria-label="出水目標水箱">${tOpts(z.to)}</select><input type="number" step="any" value="${z.zTo===null||z.zTo===undefined?'':z.zTo}" placeholder="或填標高 m" aria-label="出水點標高 m"></div></td>
       <td><button class="rm" type="button" aria-label="刪除">×</button></td>`;
-    const ins = tr.querySelectorAll('input'), sel = tr.querySelector('select');
-    ins[0].oninput = () => { z.name = ins[0].value; render(true); };
-    sel.onchange = () => { z.kind = sel.value; if (z.kind==='manual'){ z.qLpm = z.qLpm||100; } buildPumps(); render(true); };
-    ins[1].oninput = () => { const n=Number(ins[1].value); if(ins[1].value===''||!isFinite(n)) return; if (z.kind==='manual') z.qLpm=n; else z.share=n; render(true); };
-    ins[2].oninput = () => { const v=ins[2].value.trim(); if(v===''){ z.static=null; render(true); return; } const n=Number(v); if(isFinite(n)){ z.static=n; render(true);} };
-    ins[3].oninput = () => { const n=Number(ins[3].value); if(ins[3].value!==''&&isFinite(n)){ z.length=n; render(true);} };
-    ins[4].oninput = () => { const v=ins[4].value.trim(); z.residual = v===''?null:Number(v); render(true); };
-    ins[5].oninput = () => { const m = ins[5].value.match(/^(\d+)\s*\+\s*(\d+)$/); if (m){ z.duty=+m[1]; z.standby=+m[2]; render(true);} };
+    const tds = tr.querySelectorAll('td');
+    const ins = i2 => tds[i2].querySelector('input'), sel = tds[1].querySelector('select');
+    ins(0).oninput = () => { z.name = ins(0).value; render(true); };
+    sel.onchange = () => { z.kind = sel.value; if (z.kind==='manual'){ z.qLpm = z.qLpm||100; } if (z.kind==='transfer' && z.share===undefined) z.share = 100; buildPumps(); render(true); };
+    ins(2).oninput = () => { const n=Number(ins(2).value); if(ins(2).value===''||!isFinite(n)) return; if (z.kind==='manual') z.qLpm=n; else z.share=n; render(true); };
+    ins(3).oninput = () => { const v=ins(3).value.trim(); if(v===''){ z.static=null; render(true); return; } const n=Number(v); if(isFinite(n)){ z.static=n; render(true);} };
+    ins(4).oninput = () => { const n=Number(ins(4).value); if(ins(4).value!==''&&isFinite(n)){ z.length=n; render(true);} };
+    ins(5).oninput = () => { const v=ins(5).value.trim(); z.residual = v===''?null:Number(v); render(true); };
+    ins(6).oninput = () => { const m = ins(6).value.match(/^(\d+)\s*\+\s*(\d+)$/); if (m){ z.duty=+m[1]; z.standby=+m[2]; render(true);} };
+    const fromSel = tds[7].querySelector('select'), fromZ = tds[7].querySelector('input'), toSel = tds[8].querySelector('select'), toZ = tds[8].querySelector('input');
+    fromSel.onchange = () => { z.from = fromSel.value || null; render(true); };
+    fromZ.oninput = () => { z.zFrom = numOrNull(fromZ.value); render(true); };
+    toSel.onchange = () => { z.to = toSel.value || null; render(true); };
+    toZ.oninput = () => { z.zTo = numOrNull(toZ.value); render(true); };
     tr.querySelector('.rm').onclick = () => { state.pumps.splice(i,1); buildPumps(); render(true); };
     tb.appendChild(tr);
   });
@@ -725,9 +906,12 @@ function buildPumps(){
 function paintPumpNotes(){
   Array.from($('pumpTbl').tBodies[0].rows).forEach((tr, i) => {
     const z = state.pumps[i], p = R.pumps[i]; if (!z || !p) return;
-    const q = tr.querySelector('[data-c=qn]'), h = tr.querySelector('[data-c=hn]');
-    q.textContent = z.kind==='manual' ? '直接指定流量' : `≈ ${fmt(p.Qlpm, 1)} L/min（${z.kind==='hvac'?'空調補水':'生活尖峰'} × ${z.share===undefined?100:z.share}%）`;
+    const q = tr.querySelector('[data-c=qn]'), h = tr.querySelector('[data-c=hn]'), d = tr.querySelector('[data-c=dn]');
+    const lbl = { domestic: '生活尖峰', hvac: '空調補水', transfer: '轉輸（目標水箱下游最大時需求）' }[z.kind];
+    q.textContent = z.kind==='manual' ? '直接指定流量' : `≈ ${fmt(p.Qlpm, 1)} L/min（${lbl} × ${z.share===undefined?100:z.share}%）`;
     h.textContent = (z.static===null||z.static===undefined||z.static==='') ? `自動 ${fmt(p.Hs, 1)} m` : '';
+    const du = Number(p.duty) || 1;
+    d.textContent = du > 1 ? `${du} 台同時運轉，各台約 ${fmt(100 / du, 0)}% 流量` : '';
   });
 }
 
@@ -769,26 +953,29 @@ function render(fromInput){
   $('outCool').innerHTML = rows(['cool_type','ct_circ','ct_e','ct_d','ct_m','ct_bd','hvac_daily','hvac_maxh','proc_raw'], ['proc_raw']) + checksIn('1');
   $('twModeSeg').hidden = !tw;
   document.querySelectorAll('#twModeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.twmode===state.twMode));
-  $('demandSub').textContent = tw ? '台水格式：空調用水列在面積表內一起乘 0.9 變化係數，再依 V 的級距取安全係數。' : '一日設計用水量 = (生活 + 空調等) × 設計裕度。';
+  $('demandSub').textContent = tw ? '台水格式：空調用水列在面積表內一起乘 0.9 變化係數，再依 V 的級距取安全係數。' : '一日設計用水量 = 生活 × 生活裕度 + (空調等) × 空調／製程裕度。';
   const dIds = R.trace.filter(s => s.sec.startsWith('2')).map(s => s.id);
   $('outDemand').innerHTML = rows(dIds.filter(id => !/^tw_[aenu]\d/.test(id)), ['Vd']) + checksIn('2');
+  paramTable($('pDemand'), ['perCapLpd','designMarginDom','designMarginProc','hvacPeak']);
   $('fixtureCard').hidden = reg.method.peak !== 'hunter';
   $('peakManualCard').hidden = reg.method.peak !== 'manual';
   $('outBalance').innerHTML = balanceSVG();
   $('outPeak').innerHTML = rows(['use_h','pk_k','qh','wsfu','qp_gpm','qp_dom'], ['qp_dom']) + checksIn('3');
 
   // 進水與儲水
-  $('svcSub').textContent = reg.method.service==='twc_di' ? '台水算法：Di = 4.59√Vd（24 小時均勻進水、流速 0.7 m/s），取 ≥ Di 的標準口徑。' : '以生活尖峰加空調補水最大時流量，在流速上限下選管。';
+  $('svcSub').textContent = reg.method.service==='twc_di' ? '台水算法：Di = 4.59√Vd（24 小時均勻進水、流速 0.7 m/s），取 ≥ Di 的標準口徑。' : (state.svcBasis === 'peak' ? '尖峰直供：以生活尖峰加空調補水最大時流量，在流速上限下選管。' : '儲水補水：有水箱時市政進水只需補水箱，以 Vd 在 24 h 均勻進水選管；尖峰由水箱後的泵浦承擔。');
+  $('svcBasisF').hidden = reg.method.service === 'twc_di';
   $('outService').innerHTML = rows(['di_k','Di','Di_adopt','Dp','svc_q','svc_dreq','svc_id','pub_month','pub_meter'], ['Di_adopt','svc_id']) + checksIn('4');
   $('totPctF').hidden = reg.method.storage !== 'tw_std6'; $('adoptVGF').hidden = !tw; $('adoptVTF').hidden = !tw;
-  const sIds = R.trace.filter(s => s.sec.startsWith('5')).map(s => s.id);
-  $('outStorage').innerHTML = rows(sIds, ['st_total','cell_dom','cell_cool']) + checksIn('5');
-  paramTable($('pStorage'), ['domHours','coolHours','compartments','vgMinPct','totMaxDays']);
+  const sIds = R.trace.filter(s => s.sec.startsWith('5') && !s.alias).map(s => s.id);
+  $('outStorage').innerHTML = rows(sIds, ['st_total','fire']) + checksIn('5');
+  paramTable($('pStorage'), ['domHours','coolHours','compartments','vgMinPct','totMaxDays','maxCellVolume']);
+  paintTanks();
 
   // 泵浦
   const pIds = R.trace.filter(s => s.sec.startsWith('6 ') && /^z\d+_(q|id|v|hf|h|kw|motor)$/.test(s.id)).map(s => s.id);
   $('outPumps').innerHTML = R.pumps.map((p, i) => `<h3>${esc(p.name)} <span class="scope">${p.duty} 用 ${p.standby} 備</span></h3>` + rows(pIds.filter(id => id.startsWith('z'+i+'_')), ['z'+i+'_h','z'+i+'_motor'])).join('') + checksIn('6 ');
-  paramTable($('pPump'), ['vMax','gradMax','hwC','fittingPct','pumpEff','pumpMargin','resGeneral','resFlushValve','peakK','useHours','perCapLpd','designMargin','hvacPeak']);
+  paramTable($('pPump'), ['vMax','gradMax','hwC','fittingPct','pumpEff','pumpMargin','resGeneral','resFlushValve','peakK','useHours']);
   paintPumpNotes();
   $('twcHeadCard').hidden = !tw;
   $('outTwHead').innerHTML = state.twcHead.enable ? rows(['tw_Hs','tw_Hd','tw_Ht','tw_Hw','tw_H','tw_Q','tw_PS'], ['tw_H']) + checksIn('6b') : '';
@@ -818,10 +1005,13 @@ function svgDims(svg){ const m = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:
 function netSVG(mode){
   const nt = R.net; if (!nt) return '<div class="sub">未啟用系統昇位計算。</div>';
   const K = palette(mode), N = nt.N, fp = N > 12 ? 40 : 64, W = 900;
-  const roofY = 54, yFl = k => roofY + (N - k + 1) * fp, yGL = yFl(1), bsH = 156, H = yGL + bsH + 30;
+  const roofY = 54, yFl = k => roofY + (N - k + 1) * fp, yGL = yFl(1), bsH = Math.max(156, 54 + Math.max(0, (R.tanks || []).length - 1) * 62 + 56), H = yGL + bsH + 30;
   const seg = id => nt.segs.find(x => x.id === id);
   const lab = (sg, extra) => sg ? `${sg.id}  ${sg.pipe}${sg.Q !== null ? `　${fmt(sg.Q, sg.Q >= 100 ? 0 : 1)} L/min　v ${fmt(sg.v, 2)} m/s` : ''}${extra || ''}` : '';
-  const xR = 350, xH = 800, xT = 124, xP = 272, yTankD = yGL + 54, yTankC = yGL + 116;
+  const xR = 350, xH = 800, xT = 124, xP = 272;
+  const TK = R.tanks || [], tyOf = i => yGL + 54 + i * 62;
+  const iDom = TK.findIndex(t => t.role === 'domestic'), iHv = TK.findIndex(t => t.role === 'hvac');
+  const yTankD = tyOf(iDom >= 0 ? iDom : 0), yTankC = iHv >= 0 ? tyOf(iHv) : tyOf(Math.min(1, Math.max(0, TK.length - 1)));
   let g = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${mode === 'screen' ? '100%' : W}" ${mode === 'screen' ? '' : `height="${H}"`} role="img" aria-label="系統昇位與管徑圖" style="${mode === 'screen' ? 'min-width:760px;' : ''}max-width:${W}px;font-family:'Microsoft JhengHei','Noto Sans TC',system-ui,sans-serif"><rect width="${W}" height="${H}" fill="${mode === 'screen' ? 'transparent' : K.bg}"/>`;
   g += `<text x="8" y="18" font-size="13" font-weight="700" fill="${K.ink}">系統昇位與管徑圖（System Flow）</text><text x="8" y="34" font-size="10.5" fill="${K.dim}">${esc(nt.cat)}；v ≤ ${nt.vmax} m/s、梯度 ≤ ${nt.gradMax} m/100m；標高以地面層 ±0.00 為基準</text>`;
   // 樓板與標高
@@ -831,12 +1021,19 @@ function netSVG(mode){
     g += `<line x1="64" x2="${W - 16}" y1="${y}" y2="${y}" stroke="${K.line}" stroke-width="${k === 1 ? 1.6 : .8}" ${k === 1 ? '' : 'stroke-dasharray="4 4"'}/><text x="8" y="${y + 4}" font-size="11" fill="${K.ink}">${k === 1 ? '1F／地面' : k + 'F'} ${z >= 0 ? '+' : ''}${fmt(z, 2)}</text>`;
   }
   g += `<rect x="64" y="${yGL}" width="${W - 80}" height="${bsH}" fill="${K.panel2}" stroke="${K.line}" opacity=".7"/><text x="8" y="${yGL + 30}" font-size="11" fill="${K.ink}">地下泵房</text><text x="8" y="${yGL + 44}" font-size="10.5" fill="${K.dim}">底 ${fmt(nt.zTank, 2)}</text>`;
-  // 市水
+  // 市水與水箱（讀 R.tanks）
   const s1 = seg('S1');
-  g += `<path d="M64 ${yTankD} H${xT}" stroke="${K.acc}" stroke-width="3" fill="none"/><text x="${xT}" y="${yGL + 18}" font-size="10.5" fill="${K.acc}">市水引入 ${esc(lab(s1))}</text>`;
-  // 水池
-  g += `<rect x="${xT}" y="${yTankD - 22}" width="104" height="44" rx="5" fill="${K.soft}" stroke="${K.acc}"/><text x="${xT + 52}" y="${yTankD - 4}" font-size="11" text-anchor="middle" fill="${K.ink}">生活水池</text><text x="${xT + 52}" y="${yTankD + 12}" font-size="10.5" text-anchor="middle" fill="${K.dim}">${R.storage.cellDom} m³ × ${R.storage.n} 格</text>`;
-  g += `<path d="M74 ${yTankD} V${yTankC} H${xT}" stroke="${K.acc}" stroke-width="2.2" fill="none"/><rect x="${xT}" y="${yTankC - 22}" width="104" height="44" rx="5" fill="${K.soft}" stroke="${K.hv}"/><text x="${xT + 52}" y="${yTankC - 4}" font-size="11" text-anchor="middle" fill="${K.ink}">${R.evaporative ? '空調補水 Break tank' : '空調補水池'}</text><text x="${xT + 52}" y="${yTankC + 12}" font-size="10.5" text-anchor="middle" fill="${K.dim}">${R.storage.cellCool} m³ × ${R.storage.n} 格</text>`;
+  const mainsIdx = TK.map((t, i) => t.feed === 'mains' ? i : -1).filter(i => i >= 0);
+  const yM0 = mainsIdx.length ? tyOf(mainsIdx[0]) : yTankD;
+  g += `<path d="M64 ${yM0} H70" stroke="${K.acc}" stroke-width="3" fill="none"/><text x="${xT}" y="${yGL + 18}" font-size="10.5" fill="${K.acc}">市水引入 ${esc(lab(s1))}</text>`;
+  if (mainsIdx.length > 1) g += `<path d="M70 ${tyOf(mainsIdx[0])} V${tyOf(mainsIdx[mainsIdx.length - 1])}" stroke="${K.acc}" stroke-width="2.2" fill="none"/>`;
+  let edge = 0;
+  TK.forEach((t, i) => {
+    const y = tyOf(i), col = t.role === 'hvac' ? K.hv : t.role === 'fire' ? K.warn : K.acc;
+    if (t.feed === 'mains') g += `<path d="M70 ${y} H${xT}" stroke="${K.acc}" stroke-width="2.2" fill="none"/>`;
+    else { const j = TK.findIndex(x => x.id === t.feed); if (j >= 0) { const bx = Math.min(118, 78 + 8 * edge++); g += `<path d="M${xT} ${tyOf(j) + 14} H${bx} V${y} H${xT}" stroke="${K.acc}" stroke-width="1.8" stroke-dasharray="5 3" fill="none"/>`; } }
+    g += `<rect x="${xT}" y="${y - 22}" width="104" height="44" rx="5" fill="${K.soft}" stroke="${col}"/><text x="${xT + 52}" y="${y - 4}" font-size="11" text-anchor="middle" fill="${K.ink}">${esc(String(t.name).slice(0, 9))}</text><text x="${xT + 52}" y="${y + 12}" font-size="10.5" text-anchor="middle" fill="${K.dim}">${fmt(t.vu, t.vu >= 100 ? 0 : 1)} m³ × ${t.n} 顆</text>`;
+  });
   // 泵與幹管
   const pumpsN = R.pumps || [];
   const dI = pumpsN.findIndex(p => p.kind === 'domestic'), hI = pumpsN.findIndex(p => p.kind === 'hvac');
@@ -884,6 +1081,10 @@ function profRows(){
 }
 function renderFlow(){
   $('nRoofHvac').checked = state.net.roofHvac !== false;
+  const flat = state.net.layout === 'flat';
+  document.querySelectorAll('#layoutSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.layout === (flat ? 'flat' : 'multistory')));
+  $('nFloorsF').hidden = flat; $('nFloorHF').hidden = flat; $('nRoofHvacL').hidden = flat;
+  $('layoutNote').textContent = flat ? '平鋪式：沒有多層立管與屋頂。靜揚程 = 出水點標高 − 吸水水位標高，請在「泵浦」頁的吸水來源／出水目標填水箱或標高；沒填則靜揚程以 0 m 計並警示。' : '多層樓：靜揚程由「地下泵房底標高 → 屋頂」自動推算；在泵浦頁填吸水／出水標高可覆蓋。';
   const nr = netRows();
   $('outNetSvg').innerHTML = netSVG('screen');
   $('outNetChecks').innerHTML = checksIn('6c');
@@ -913,7 +1114,12 @@ function wqPresetList(){
 function renderWQ(){
   const w = R.wq;
   const head = '<thead><tr><th>項目</th><th>原水</th><th>飲用水標準</th><th>JRA 補給水基準</th><th>不加藥可濃縮倍數</th></tr></thead>';
-  $('wqTbl').innerHTML = head + '<tbody>' + w.items.map(it => `<tr><td>${esc(it.label)}${it.est?'<span class="scope">估算</span>':''}</td><td class="r">${smart(it.v)} ${esc(it.unit)}</td><td>${it.potLimit?`${esc(it.potLimit)} ${it.potOk?'<span style="color:var(--good)">✓</span>':'<b style="color:var(--bad)">✕</b>'}`:'—'}</td><td>${it.mkLimit?`${esc(it.mkLimit)} ${it.mkOk?'<span style="color:var(--good)">✓</span>':'<b style="color:var(--warn)">超過</b>'}`:'—'}</td><td class="r">${it.cocMax?fmt(it.cocMax,2):'—'}</td></tr>`).join('') + '</tbody>';
+  $('wqTbl').innerHTML = head + '<tbody>' + w.items.map(it => `<tr><td>${esc(it.label)}${it.est?'<span class="scope">估算</span>':''}</td><td class="r">${smart(it.v)} ${esc(it.unit)}</td><td>${it.potLimit?`${esc(it.potLimit)} ${it.potOk?'<span style="color:var(--good)">✓</span>':'<b style="color:var(--bad)">✕</b>'}`:'—'}</td><td>${it.mkLimit?`${esc(it.mkLimit)} ${it.mkOk?'<span style="color:var(--good)">✓</span>':'<b style="color:var(--warn)">超過</b>'}`:'—'}</td><td class="r">${it.cocMax?(it.cocMax<1?'<b style="color:var(--bad)">補給水已超限</b>':fmt(it.cocMax,2)):'—'}</td></tr>`).join('') + '</tbody>';
+  $('wqCircCap').textContent = `比較基準：${w.circLabel || ''}。${w.circNote || ''}`;
+  $('wqCirc').innerHTML = (w.circ && w.circ.length) ? '<thead><tr><th>項目</th><th>補給水（原水）</th><th>循環水 ≈ COC × 補給水</th><th>所選基準上限</th><th>判定</th></tr></thead><tbody>' + w.circ.map(c => `<tr><td>${esc(c.label)}</td><td class="r">${smart(c.v)} ${esc(c.unit)}</td><td class="r">${smart(c.circ)} ${esc(c.unit)}</td><td class="r">${smart(c.limit)} ${esc(c.unit)}</td>${c.ok ? '<td class="ok">✓ 符合</td>' : '<td class="ng">✕ 超過</td>'}</tr>`).join('') + '</tbody>' : '<tbody><tr><td class="na">非蒸發式散熱或未提供可比較項目，無循環水濃度比較。</td></tr></tbody>';
+  const pk = (WQ.uses.find(u => u.key === w.potKey) || {}).label || w.potKey;
+  $('wqPotableNote').textContent = `目前採用：${pk}${state.wq.potableBasis ? '（使用者選擇）' : '（依法規區域預設）'}`;
+  $('wqCircNote').textContent = w.circNote || '';
   $('outWQ').innerHTML = (R.index.wq_cocmax ? resRow('wq_cocmax', {key:true}) : '') + checksIn('7');
   $('wqPlan').innerHTML = '<thead><tr><th>設備／系統</th><th>建議</th><th>原因（原水對基準）</th><th>依據</th></tr></thead><tbody>' + w.plan.map(p => `<tr><td><b>${esc(p.name)}</b></td><td><span class="lv ${p.level}">${esc(LVT[p.level])}</span></td><td style="min-width:260px;max-width:460px;white-space:normal">${esc(p.reason)}</td><td>${chips(p.src)}</td></tr>`).join('') + '</tbody>';
   $('wqSys').innerHTML = w.systems.map(sy => `<h3>${esc(sy.label)}　<span class="scope">${esc(sy.basis)}</span> ${chips(sy.src)}</h3>${sysTable(sy)}`).join('');
@@ -995,6 +1201,7 @@ function renderSpec(){
 function needConfirm(){
   const list = [];
   Object.entries(R.params).forEach(([k, u]) => { const t = SOURCES[u.src] ? SOURCES[u.src].tier : (u.src==='user'?'user':'assume'); if (t==='assume' || t==='owner' || t==='user') list.push({ k, label: (PARAM_LABEL[k]||[k])[0], v: u.v, src: u.src }); });
+  state.tanks.forEach(t => { if (t.role === 'receiving' && (t.ruleMode || 'pctVd') === 'pctVd') list.push({ k: 'tank_rule_' + t.id, label: `受水箱「${t.name}」容量規則（佔位，待確認）`, v: `${t.pctVd}% Vd`, src: 'assume' }); });
   R.conflicts.forEach(c => list.push({ k: 'conflict_'+c.key, label: `業主值與法規不同：${c.key}`, v: `${JSON.stringify(c.ownerV)}（法規 ${JSON.stringify(c.baseV)}）`, src: 'owner' }));
   return list.filter(x => typeof x.v !== 'object' || x.k.startsWith('conflict'));
 }
@@ -1025,18 +1232,17 @@ function meta(kind){
 }
 function summaryPairs(){
   const s = R.storage, out = [['一日設計用水量 Vd', `${fmt(R.Vd)} m³/日`], ['進水管', R.service.name ? `${R.service.name}（${R.service.adopt} mm）` : `${R.service.adopt} mm（計算 ${fmt(R.service.calc,1)} mm）`],
-    ['儲水合計（不含消防）', `${fmt(s.total,0)} m³（生活 ${s.cellDom}×${s.n}、空調 ${s.cellCool}×${s.n}）`]];
+    ['儲水合計（不含消防）', `${fmt(s.total,0)} m³（${R.tanks.filter(t => t.role !== 'fire').map(t => `${t.name} ${fmt(t.vu, t.vu >= 100 ? 0 : 1)}×${t.n}`).join('、')}）`]];
+  if (s.fire) out.push(['消防水源（消防組提供）', `${fmt(s.fire,0)} m³`]);
   R.pumps.forEach(p => out.push([p.name, `${fmt(p.Qlpm,0)} L/min × ${fmt(p.H,1)} m，${p.pipe}，${p.motor} ${p.mUnit}，${p.duty}用${p.standby}備`]));
-  if (R.wq.cocMax !== null && R.evaporative) out.push(['不加藥可達 COC', `${fmt(R.wq.cocMax)}（受 ${R.wq.governing} 控制）`]);
+  if (R.wq.cocMax !== null && R.evaporative) out.push(['不加藥可達 COC', R.wq.cocMax < 1 ? '補給水已超過所選循環水基準' : `${fmt(R.wq.cocMax)}（受 ${R.wq.governing} 控制）`]);
   return out;
 }
 /* 設備表（水池、泵浦）— 計算書與 Word 共用 */
 function schedules(){
   const s = R.storage;
-  const tanks = [['水池／水箱', '每格容量 m³', '格數', '合計 m³', '說明'],
-    ['生活用水池', String(s.cellDom), String(s.n), String(s.cellDom*s.n), `備援 ${R.index.h_dom?R.index.h_dom.v:'—'} h；單格清洗時不斷水`],
-    [R.evaporative ? '空調補水 Break tank' : '空調系統補水池', String(s.cellCool), String(s.n), String(s.cellCool*s.n), R.evaporative ? `備援 ${R.index.h_cool?R.index.h_cool.v:'—'} h；空氣間隙與飲用水隔離` : '充水與洩漏補水'],
-    ['消防水池', s.fire ? fmt(s.fire,0) : '—', s.fire ? '1' : '—', s.fire ? fmt(s.fire,0) : '—', '消防組依消防法規計算，獨立設置']];
+  const roleNote = t => t.role === 'fire' ? '消防組依消防法規計算，獨立設置' : (t.role === 'hvac' && R.evaporative ? '空氣間隙與飲用水隔離（Break tank）' : t.role === 'receiving' ? '承接市政進水，供下游水箱' : '') + (t.hout !== null && t.hout !== undefined ? `${t.role === 'receiving' ? '；' : (t.role === 'hvac' && R.evaporative ? '；' : '')}一顆停用可支應 ${fmt(t.hout, 1)} h` : '');
+  const tanks = [['水池／水箱', '每顆容量 m³', '顆數', '合計 m³', '說明']].concat(R.tanks.map(t => [`${t.name}（${ROLE_LABEL[t.role] || t.role}）`, fmt(t.vu, t.vu >= 100 ? 0 : 1), String(t.n), fmt(t.vins, 0), roleNote(t)]));
   const pumps = [['編號', '名稱', '用＋備', '流量 L/min', '總揚程 m', '管徑', '流速 m/s', '馬達']].concat(R.pumps.map((p, i) => [`P-${String(i+1).padStart(2,'0')}`, p.name, `${p.duty}+${p.standby}`, fmt(p.Qlpm,0), fmt(p.H,1), p.pipe, fmt(p.v,2), `${p.motor} ${p.mUnit}`]));
   const out = [{ title: '水池／水箱配置表', rows: tanks }, { title: '泵浦設備表', rows: pumps }];
   const nr = netRows(); if (nr) out.push({ title: '給水管徑表（系統昇位：引入→幹管→立管→橫支管→末端）', rows: [nr.head.slice(0, 9)].concat(nr.rows.map(r => r.slice(0, 9))) });
@@ -1098,7 +1304,7 @@ function wqReport(){
     tableHTML(['設備／系統', '建議', '原因（原水對基準）', '依據'], w.plan.map(p => [p.name, LVT[p.level], p.reason, srcShort(p.src)]));
   h += '<h2>三、各用途水質比對</h2>';
   w.systems.forEach(sy => { h += `<p><b>${esc(sy.label)}</b>　${esc(sy.basis)}（${esc(srcShort(sy.src))}）</p>`; if (sy.rows.length) { const ho = sy.rows.some(r => r.ownerLimit); h += tableHTML(['項目', '原水', '基準', '判定'].concat(ho ? ['業主基準', '判定'] : []), sy.rows.map(r => [r.label, r.v === null ? '—' : smart(r.v) + ' ' + r.unit, r.limit, stTxt(r.ok)].concat(ho ? [r.ownerLimit || '—', r.ownerLimit ? stTxt(r.ownerOk) : '—'] : []))); } });
-  h += '<h2>四、冷卻塔濃縮倍數與水處理</h2>' + (R.evaporative ? `<p>設計 COC：${esc(state.cooling.coc)}；不加藥可達最大 COC：${fmt(w.cocMax)}（受 ${esc(w.governing)} 控制）。JRA-GL02 基準適用於不使用水處理劑時，實際 COC 由水處理廠商依加藥方案保證。</p>` + tableHTML(['項目', '原水', '飲用水標準', 'JRA-GL02 補給水基準', '不加藥可濃縮倍數'], w.items.map(it => [it.label, smart(it.v) + ' ' + it.unit, it.potLimit ? `${it.potLimit} ${it.potOk ? '合格' : '不合格'}` : '—', it.mkLimit ? `${it.mkLimit} ${it.mkOk ? '符合' : '超過'}` : '—', it.cocMax ? fmt(it.cocMax) : '—'])) : '<p>非蒸發式散熱，無冷卻塔水處理需求。</p>');
+  h += '<h2>四、冷卻塔濃縮倍數與水處理</h2>' + (R.evaporative ? `<p>設計 COC：${esc(state.cooling.coc)}；不加藥可達最大 COC：${w.cocMax !== null && w.cocMax < 1 ? '補給水已超過所選循環水基準（不加藥無法運轉）' : fmt(w.cocMax) + '（受 ' + esc(w.governing) + ' 控制）'}。所選基準：${esc(w.circLabel)}；實際 COC 由水處理廠商依加藥方案保證。</p>` + tableHTML(['項目', '原水', '飲用水標準', 'JRA-GL02 補給水基準', '不加藥可濃縮倍數'], w.items.map(it => [it.label, smart(it.v) + ' ' + it.unit, it.potLimit ? `${it.potLimit} ${it.potOk ? '合格' : '不合格'}` : '—', it.mkLimit ? `${it.mkLimit} ${it.mkOk ? '符合' : '超過'}` : '—', it.cocMax ? (it.cocMax < 1 ? '補給水已超限' : fmt(it.cocMax)) : '—'])) + (w.circ && w.circ.length ? `<p>循環水濃度直接比較（基準：${esc(w.circLabel)}）：</p>` + tableHTML(['項目', '補給水', '循環水 ≈ COC × 補給水', '上限', '判定'], w.circ.map(c => [c.label, smart(c.v) + ' ' + c.unit, smart(c.circ) + ' ' + c.unit, smart(c.limit) + ' ' + c.unit, c.ok ? '符合' : '超過'])) : '') : '<p>非蒸發式散熱，無冷卻塔水處理需求。</p>');
   const cmp = w.compare, ps = WQ.params.filter(p => cmp.some(c => c.rows.find(r => r.k === p[0])));
   h += '<h2>五、各國飲用水標準比對</h2>' + tableHTML(['項目', '原水'].concat(cmp.map(c => c.label)), ps.map(p => { const x = w.items.find(i => i.k === p[0]); return [p[1], x ? smart(x.v) + ' ' + p[2] : '—'].concat(cmp.map(c => { const r = c.rows.find(r => r.k === p[0]); return r ? `${r.limit} ${r.ok === null ? '' : r.ok ? '✓' : '✕'}` : '—'; })); }));
   h += '<h2>六、預設水質基準一覽</h2>' + tableHTML(['項目'].concat(WQ.uses.map(u => u.label)), WQ.params.map(p => [p[1]].concat(WQ.uses.map(u => { const x = WQ[u.key][p[0]]; return x === undefined ? '—' : Array.isArray(x) ? x[0] + '~' + x[1] : '≤ ' + x; }))).concat([['出處'].concat(WQ.uses.map(u => srcShort(WQ[u.key].src)))]));
@@ -1120,6 +1326,7 @@ function reportHTML(kind){
     h += '<h2>水資源平衡</h2><div data-img="bal">' + balanceSVG('print') + '</div>' + netReport(true) + ovReport();
     let sec = null, buf = '';
     R.trace.forEach(st => {
+      if (st.alias) return;
       if (st.sec !== sec) { if (buf) h += buf + '</table>'; sec = st.sec; buf = `<h2>${esc(sec)}</h2><table><tr><th style="width:21%">項目</th><th style="width:25%">公式</th><th style="width:22%">代入</th><th style="width:12%">結果</th><th style="width:7%">單位</th><th style="width:13%">出處</th></tr>`; }
       buf += `<tr><td>${esc(st.label)}</td><td>${st.kind==='in'?'<i>輸入</i>':esc(st.f||'')}</td><td class="mono">${esc(st.sub||'')}</td><td class="v">${typeof st.v==='number'?valText(st):esc(st.v)}</td><td>${esc(st.unit||'')}</td><td class="src">${esc(srcShort(st.src))}</td></tr>`;
     });
@@ -1200,9 +1407,9 @@ function renderSide(){
   const k = [];
   k.push(['demand', '一日設計用水量 Vd', fmt(R.Vd), 'm³/日', `生活 ${fmt(R.domRaw)}＋空調等 ${fmt(R.procRaw)}${R.units==='US'?`（≈ ${fmt(R.Vd*264.172,0)} gal/d）`:''}`]);
   k.push(['supply', '進水管', R.service.name || R.service.adopt, R.service.name ? '' : 'mm', `計算 ${fmt(R.service.calc,1)} mm${R.service.meter?`；PUB 水表 ${R.service.meter} mm`:''}`]);
-  k.push(['supply', '儲水合計（不含消防）', fmt(s.total,0), 'm³', `生活 ${s.cellDom} m³×${s.n} 格、空調 ${s.cellCool} m³×${s.n} 格${s.fire?`；消防 ${fmt(s.fire,0)} m³ 另計`:''}`]);
+  k.push(['supply', '儲水合計（不含消防）', fmt(s.total,0), 'm³', R.tanks.filter(t => t.role !== 'fire').map(t => `${t.name} ${fmt(t.vu, t.vu >= 100 ? 0 : 1)} m³×${t.n}`).join('、') + (s.fire ? `；消防 ${fmt(s.fire,0)} m³ 另計` : '')]);
   R.pumps.forEach(p => k.push(['pumps', p.name, `${p.motor}`, p.mUnit, `${fmt(p.Qlpm,0)} L/min × ${fmt(p.H,1)} m · ${p.pipe} · ${p.duty}+${p.standby}`]));
-  if (R.evaporative && R.wq.cocMax !== null) k.push(['wq', '不加藥可達 COC', fmt(R.wq.cocMax), '', `受 ${R.wq.governing} 控制；設計 COC ${state.cooling.coc}`]);
+  if (R.evaporative && R.wq.cocMax !== null) k.push(R.wq.cocMax < 1 ? ['wq', '不加藥可達 COC', '補給水已超限', '', `超過所選循環水基準（${R.wq.circLabel}）`] : ['wq', '不加藥可達 COC', fmt(R.wq.cocMax), '', `受 ${R.wq.governing} 控制；設計 COC ${state.cooling.coc}`]);
   $('kpis').innerHTML = k.map(x => `<button type="button" class="kpi" data-goto="${x[0]}"><span class="k">${esc(x[1])}</span><span class="v">${esc(x[2])}<small>${esc(x[3])}</small></span><span class="d">${esc(x[4])}</span></button>`).join('');
   const cnt = l => R.checks.filter(c => c.level===l).length;
   $('lights').innerHTML = `<span><i class="dot" style="background:var(--bad)"></i>不合格 ${cnt('fail')}</span><span><i class="dot" style="background:var(--warn)"></i>注意 ${cnt('warn')}</span><span><i class="dot" style="background:var(--good)"></i>通過 ${cnt('pass')}</span>`;
@@ -1217,12 +1424,23 @@ document.addEventListener('click', e => {
   const g = e.target.closest('[data-goto]'); if (g) { state.tab = g.dataset.goto; render(false); document.querySelector('.layout').scrollIntoView({behavior:'smooth'}); return; }
   const c = e.target.closest('[data-cool]'); if (c) { state.cooling.type = c.dataset.cool; if (c.dataset.cool==='dry') { state.cooling.basis='hvac'; if (state.cooling.hvacDaily === DEFAULTS.cooling.hvacDaily) state.cooling.hvacDaily = 0; } render(true); return; }
   const b = e.target.closest('[data-basis]'); if (b && !b.disabled) { state.cooling.basis = b.dataset.basis; render(true); return; }
+  const ly = e.target.closest('[data-layout]'); if (ly) { state.net.layout = ly.dataset.layout; render(true); return; }
   const m = e.target.closest('[data-twmode]'); if (m) { state.twMode = m.dataset.twmode; render(true); return; }
 });
 $('modeScreen').onclick = () => { state.mode='screen'; render(true); };
 $('modeBook').onclick = () => { state.mode='book'; state.tab='export'; render(true); };
 $('addTwRow').onclick = () => { state.domestic.twRows.push({ type:'office', area:0 }); buildTwRows(); render(true); };
 $('addOther').onclick = () => { state.others.push({ name:'', daily:0 }); buildOthers(); render(true); };
+$('addTank').onclick = () => { state.tanks.push({ id: newTankId(), name: `水箱 ${state.tanks.length + 1}`, role: 'custom', feed: 'mains', ruleMode: 'hours', hours: 24, pctVd: 20, fixedVolume: null, demand: 0, dims: TANK_DIMS(), cellsMode: 'byDims', fixedCells: null, redundancy: 'none', keepHours: 24, minCells: 1, zLow: null }); buildTanks(); buildPumps(); render(true); };
+$('tplTank4').onclick = () => { if (state.tanks.length && !window.confirm('載入範本會取代目前的水箱設定（消防容量保留）。繼續？')) return; setTanks(defaultTanks4()); toast('已載入範本：受水箱＋生活＋空調＋消防（尺寸與受水箱規則為佔位值，請修改）'); };
+$('tplTank3').onclick = () => { if (!window.confirm('恢復成預設的生活＋空調＋消防三個水池？目前的水箱設定會被取代（消防容量保留）。')) return; setTanks(defaultTanks3()); };
+$('svcBasis').onchange = e => { state.svcBasis = e.target.value; render(true); };
+$('nRoofHvac').onchange = e => { state.net.roofHvac = e.target.checked; render(true); };
+$('wqPotable').innerHTML = '<option value="">依法規區域預設</option>' + WQ.uses.filter(u => /飲用水/.test(u.group)).map(u => `<option value="${u.key}">${esc(u.label)}</option>`).join('');
+$('wqCircBasis').innerHTML = Object.entries(WQ.circ_bases).map(([k, b]) => `<option value="${k}">${esc(b.label)}</option>`).join('');
+$('wqPotable').onchange = e => { state.wq.potableBasis = e.target.value; render(true); };
+$('wqCircBasis').onchange = e => { state.wq.circBasis = e.target.value; render(true); };
+$('wqPremix').onchange = e => { state.wq.tcsPremix = e.target.checked; render(true); };
 $('addPump').onclick = () => { state.pumps.push({ name:`泵組 ${state.pumps.length+1}`, kind:'manual', qLpm:100, static:10, length:50, residual:null, duty:1, standby:1 }); buildPumps(); render(true); };
 $('totPct').onchange = e => { const v = Number(e.target.value); if (v===40) delete state.over.totMinPct; else state.over.totMinPct = v; render(true); };
 $('twcEnable').onchange = e => { state.twcHead.enable = e.target.checked; render(true); };
@@ -1241,7 +1459,7 @@ $('ownerFile').onchange = e => {
   rd.readAsText(f); e.target.value = '';
 };
 
-function buildAll(){ buildTwRows(); buildOthers(); buildFixtures(); buildPumps(); }
+function buildAll(){ buildTwRows(); buildOthers(); buildFixtures(); buildTanks(); buildPumps(); }
 try { const th = localStorage.getItem('aidc_theme'); if (th) document.documentElement.dataset.theme = th; } catch(e){}
 readHash(); loadOwnerStored();
 try { const tb = localStorage.getItem('aidc_tab'); if (tb && !location.hash) state.tab = tb; } catch(e){}
