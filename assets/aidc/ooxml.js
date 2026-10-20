@@ -113,6 +113,7 @@
     rows.push(['章節', '項目', '代號', '計算值', '單位', '公式', '代入', '出處', '備註'].map(v => ({ v, s: 1 })));
     let sec = null;
     R.trace.forEach(st => {
+      if (st.alias) return;           // 舊版代號別名步驟（相容用）不列入匯出，避免與水箱明細重複
       if (st.sec !== sec) { sec = st.sec; rows.push([{ v: sec, s: 6 }]); }
       const r = rows.length + 1, ref = `$D$${r}`;
       let c;
@@ -278,6 +279,7 @@
     let sec = null, buf = [];
     const flush = () => { if (buf.length) { b.push(table(buf, [2300, 2700, 2200, 1200, 700, 1300], ['項目', '公式', '代入', '結果', '單位', '出處'])); buf = []; } };
     R.trace.forEach(st => {
+      if (st.alias) return;
       if (st.sec !== sec) { flush(); sec = st.sec; b.push(para(sec, { style: 'Heading1' })); }
       const isIn = st.kind === 'in';
       buf.push([{ t: st.label, b: !isIn }, isIn ? { t: '輸入', color: '64748B' } : { t: st.f || '', mono: false }, { t: st.sub || '', mono: true },

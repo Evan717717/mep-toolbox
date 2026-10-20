@@ -198,6 +198,115 @@ const sw = E.run(Object.assign(clone(LQ), { region: 'US', domestic: { occupants:
 ok(sw.region === 'US' && v(sw, 'qp_gpm') !== undefined && sw.params.totMinPct === undefined, '切換區域：同一份輸入立即以另一套法規重算（US 走 Hunter，台灣專用參數不套用）');
 ok(sw.index.wsfu && !baseTW.index.wsfu && baseTW.index.qh && !sw.index.qh, '切換區域後計算方法隨之改變（TW 用 Qh、US 用 WSFU）');
 
+sec('8b 修正項 T-02～T-12 與水箱模型');
+{
+  const TH0 = { region: 'TH', cooling: { type: 'closed_ct', basis: 'hvac', hvacDaily: 2101, hvacMaxHour: 96.64, coc: 3, heatKW: 41620, rangeC: 10 }, domestic: { occupants: 40, peakLpm: 207 }, pumps: [], net: { enable: false }, wq: { hard: 300 }, over: { perCapLpd: 100 } };
+  const run = (x) => E.run(Object.assign(clone(TH0), x));
+  // T-02 U.num
+  ok(E.U.num(null, 5) === 5 && E.U.num('', 5) === 5 && E.U.num('  ', 5) === 5 && E.U.num(undefined, 5) === 5 && E.U.num(0, 5) === 0 && E.U.num('3', 5) === 3 && E.U.num('abc', 5) === 5, 'T-02 U.num：null／空字串／空白／undefined 取預設，0 仍為 0');
+  const rc = run({ cooling: { type: 'closed_ct', basis: 'hvac', hvacDaily: 2101, hvacMaxHour: 96.64, coc: null }, wq: { hard: 100 } });
+  ok(rc.evaporative === true && !!rc.index.wq_cocmax, 'T-02 cooling.coc = null → 仍走蒸發式分支且有 wq_cocmax（COC 取預設 3）', rc.index.wq_cocmax && rc.index.wq_cocmax.v);
+  // T-03 margins
+  const rm0 = run({});
+  ok(near(v(rm0, 'vd_dom'), 4 * 1.1, 1e-9) && near(v(rm0, 'vd_cool'), 2101, 1e-9), 'T-03 預設：生活裕度 1.1、空調／製程裕度 1.0', `${v(rm0, 'vd_dom')} / ${v(rm0, 'vd_cool')}`);
+  const rm1 = run({ over: { perCapLpd: 100, designMarginDom: 1.2, designMarginProc: 1.05 } });
+  ok(near(v(rm1, 'vd_dom'), 4.8, 1e-9) && near(v(rm1, 'vd_cool'), 2101 * 1.05, 1e-9) && near(v(rm1, 'Vd'), 4.8 + 2101 * 1.05, 1e-9), 'T-03 兩個裕度各自作用於生活與空調／製程，Vd 為兩者之和', v(rm1, 'Vd'));
+  ok(rm1.params.designMarginDom.src === 'user' && rm1.params.designMarginProc.src === 'user', 'T-03 覆寫值出處標示為使用者輸入');
+  // T-04 進水流量基準
+  const rs = run({ svcBasis: 'storage' }), rp = run({ svcBasis: 'peak' });
+  ok(near(v(rs, 'svc_q'), v(rs, 'Vd') * 1000 / 1440, 1e-6) && v(rp, 'svc_q') > v(rs, 'svc_q'), 'T-04 儲水補水＝Vd 24 h 均勻；尖峰直供＝生活尖峰＋空調最大時（較大）', `${v(rs, 'svc_q').toFixed(1)} vs ${v(rp, 'svc_q').toFixed(1)}`);
+  // T-05 供水上限
+  const rcap = run({ supplyCapDay: 2011 });
+  ok(near(rcap.supply.gap, 94.4, 1e-6) && near(rcap.supply.pct, 94.4 / 2011 * 100, 1e-6) && rcap.checks.some(c => c.level === 'fail' && /超過供水上限/.test(c.msg)), 'T-05 Vd 2105.4 > 供水上限 2011：缺口 94.4 m³/d（4.7%）判不合格', rcap.supply.pct.toFixed(2) + '%');
+  const rcap2 = run({ supplyCapDay: 3000 });
+  ok(rcap2.checks.some(c => c.level === 'pass' && /供水上限/.test(c.msg)) && rcap2.supply.tFill > 0, 'T-05 供水充足：通過並算出補滿天數', rcap2.supply.tFill && rcap2.supply.tFill.toFixed(2));
+  // T-06 平鋪式
+  const flatIn = { net: { enable: true, layout: 'flat', floors: 1, floorH: 6, basement: 0, roofHvac: true }, pumps: [{ name: 'p', kind: 'hvac', share: 100, static: null, zFrom: -1, zTo: 7, length: 50, duty: 1, standby: 1 }] };
+  const rf = run(flatIn);
+  ok(near(rf.pumps[0].Hs, 8, 1e-9) && !rf.net.segs.find(sg => sg.id === 'H1'), 'T-06 平鋪式：zFrom −1、zTo 7 → 靜揚程 8 m，且無屋頂空調立管');
+  const rn = run({ net: { enable: true, layout: 'multistory', floors: 3, floorH: 4.5, basement: 4, roofHvac: false }, pumps: [{ name: 'p', kind: 'hvac', share: 100, static: null, length: 50, duty: 1, standby: 1 }] });
+  ok(rn.pumps[0].Hs === 0 && rn.checks.some(c => /靜揚程未設定/.test(c.msg)), 'T-06 roofHvac=false 時不使用屋頂標高：靜揚程 0 並警示');
+  // T-07 用機台數
+  const d2 = (share) => run({ pumps: [{ name: 'p', kind: 'hvac', share, duty: 2, standby: 1, static: 5, length: 50 }] });
+  ok(d2(100).checks.some(c => c.level === 'warn' && /超過系統需求/.test(c.msg)), 'T-07 用 2 台、各 100% → 運轉合計 200% 超過系統流量，警示');
+  ok(!d2(50).checks.some(c => /超過系統需求|不足系統/.test(c.msg)), 'T-07 用 2 台、各 50% → 合計 100%，無警示');
+  // T-08 COCmax < 1
+  const rb = run({});
+  ok(rb.wq.cocMax < 1 && !rb.index.wq_cocmax && rb.index.wq_circ_hard && near(rb.index.wq_circ_hard.v, 900, 1e-9), 'T-08 補給水硬度 300 > 上限 200：不顯示 0.67 倍，改直接比較循環水濃度 3 × 300 = 900', rb.wq.cocMax.toFixed(2));
+  ok(rb.checks.some(c => c.level === 'warn' && /補給水本身已超限/.test(c.msg)), 'T-08 警示說明是「補給水已超限」而非 COC 倍數問題');
+  const rbac = run({ wq: { hard: 300, circBasis: 'bac_gal' } });
+  ok(rbac.wq.circBasis === 'bac_gal' && near(rbac.wq.cocMax, 2, 1e-9) && rbac.wq.circSrc === 'assume', 'T-08 可選 BAC 密閉式基準（600 mg/L）；標示為工程假設（待對照原廠手冊）', rbac.wq.cocMax);
+  ok(rb.wq.circBasis === 'jra', 'T-08 不自動替換基準：預設仍是 JRA-GL02');
+  // T-09 泰國 PWA 2024
+  const PW = P.WQ.th_pwa_2024;
+  ok(PW.turb === 4 && PW.tds === 600 && PW.so4 === 250, 'T-09 PWA 2024：濁度 4 NTU、TDS 600、SO₄ 250', `${PW.turb}/${PW.tds}/${PW.so4}`);
+  ok(rb.wq.potKey === 'th_pwa_2024', 'T-09 泰國預設飲用水基準為 PWA 2024');
+  ok(P.WQ.uses.some(u => u.key === 'th_pwa_2024') && P.WQ.uses.some(u => u.key === 'th_potable'), 'T-09 舊 MOI 基準保留為參考');
+  // T-10 物理交叉檢查
+  ok(near(v(rm0, 'xc_daily'), 2319.4, 0.1) && rm0.checks.some(c => /物理滿載值/.test(c.msg)), 'T-10 空調組 2101 對排熱量推算 2319 m³/d：差 −9.4% 並提示', v(rm0, 'xc_diff').toFixed(1) + '%');
+  ok(!run({ cooling: { type: 'closed_ct', basis: 'hvac', hvacDaily: 2101, coc: 3 } }).index.xc_diff, 'T-10 沒填排熱量則不做交叉檢查');
+  // T-12 TCS 預混與 TH 繼承參數
+  const tcsOf = (rr) => rr.wq.plan.find(x => /TCS 充水製備/.test(x.name));
+  ok(tcsOf(run({ wq: { tcsPremix: true } })).level === 'none' && tcsOf(run({ wq: {} })).level !== 'none', 'T-12 勾選預混冷卻液 → 不編列現場 TCS 充水製備；未勾選則提醒');
+  ok(['vMax', 'pumpEff'].every(k => rm0.params[k].src === 'assume'), 'T-12 泰國繼承的通用參數標示為工程假設（assume）');
+  ok(P.REGIONS.TH.status === 'preview', 'T-12 泰國仍為預覽版（未升級）');
+}
+
+sec('8c 水箱模型：向量 A–G、串接、轉輸泵、舊連結轉換');
+{
+  const base = { region: 'TH', cooling: { type: 'closed_ct', basis: 'hvac', hvacDaily: 2101, hvacMaxHour: 96.64, coc: 3 }, domestic: { occupants: 40, peakLpm: 207 }, pumps: [], net: { enable: false }, wq: {}, over: { designMargin: 1.0, perCapLpd: 100 } };
+  const TK = (extra) => Object.assign({ id: 't_hvac', name: '空調水箱', role: 'hvac', ruleMode: 'hours', hours: 48, cellsMode: 'byDims', redundancy: 'none', keepHours: 24, minCells: 2 }, extra);
+  const D5 = { L: 5, W: 5, H: 2, freeboard: 0.5, wall: 0 }, D20 = { L: 20, W: 20, H: 4, freeboard: 0.5 }, D2 = { L: 2, W: 2, H: 2, freeboard: 0.5 };
+  const dom = (extra) => ({ id: 't_dom', name: '生活水箱', role: 'domestic', ruleMode: 'hours', hours: 48, cellsMode: 'byDims', redundancy: 'none', minCells: 2, dims: D2, ...extra });
+  const vec = [
+    ['A 5×5×2 單顆 37.5 → 113 顆', TK({ dims: D5 }), [37.5, 113, 4237.5, 47.98, 2825]],
+    ['B 同 A＋一顆停用仍維持全量 → 114 顆', TK({ dims: D5, redundancy: 'keepFull' }), [37.5, 114, 4275, 48.41, 2850]],
+    ['C 20×20×4 單顆 1,400 → 4 顆', TK({ dims: D20 }), [1400, 4, 5600, 47.98, 1600]],
+    ['D 同 C＋維持全量 → 5 顆', TK({ dims: D20, redundancy: 'keepFull' }), [1400, 5, 7000, 63.97, 2000]],
+    ['E 同 C＋一顆停用維持 24 h → 4 顆', TK({ dims: D20, redundancy: 'keepHours', keepHours: 24 }), [1400, 4, 5600, 47.98, 1600]],
+    ['F 生活 2×2×2：需求 8 → 最少 2 顆', dom({}), [6, 2, 12, 36, 8]],
+    ['G 同 F＋維持全量 → 3 顆', dom({ redundancy: 'keepFull' }), [6, 3, 18, 72, 12]],
+  ];
+  vec.forEach(([name, tank, exp]) => {
+    const o = E.run(Object.assign(clone(base), { tanks: [tank] })).tanks[0];
+    const got = [o.vu, o.n, o.vins, +o.hout.toFixed(2), o.area];
+    ok(exp.every((e, i) => near(e, got[i], 0.006)), `向量 ${name}`, JSON.stringify(got));
+  });
+  // 串接：受水箱需求＝下游之和；轉輸泵流量＝目標水箱下游最大時需求；平鋪式高程由水箱水位帶入
+  const chain = [
+    { id: 't_recv', name: '受水箱', role: 'receiving', feed: 'mains', ruleMode: 'pctVd', pctVd: 20, cellsMode: 'byDims', dims: { L: 10, W: 10, H: 4 }, minCells: 2, zLow: -3 },
+    { id: 't_dom', name: '生活水箱', role: 'domestic', feed: 't_recv', ruleMode: 'hours', hours: 48, cellsMode: 'byDims', dims: D2, minCells: 2 },
+    { id: 't_hvac', name: '空調水箱', role: 'hvac', feed: 't_recv', ruleMode: 'hours', hours: 48, cellsMode: 'byDims', dims: { L: 20, W: 20, H: 4 }, minCells: 2, zLow: 0 },
+    { id: 't_fire', name: '消防水箱', role: 'fire', feed: 't_recv', ruleMode: 'fixed', fixedVolume: 500, cellsMode: 'fixed', fixedCells: 1 },
+  ];
+  const rch = E.run(Object.assign(clone(base), { tanks: chain, net: { enable: true, layout: 'flat', floors: 1, floorH: 6, basement: 0 },
+    pumps: [{ name: '轉輸泵', kind: 'transfer', from: 't_recv', to: 't_hvac', share: 100, static: null, length: 100, residual: 10, duty: 1, standby: 1 }] }));
+  const tr = id => rch.tanks.find(t => t.id === id);
+  ok(near(tr('t_recv').D, tr('t_dom').D + tr('t_hvac').D, 1e-9) && near(tr('t_recv').D, 2105, 1e-9), '串接：受水箱日需求 = 生活 4 + 空調 2101 = 2105 m³/d', tr('t_recv').D);
+  ok(near(rch.pumps[0].Qlpm, tr('t_hvac').qDown, 1e-9) && near(rch.pumps[0].Qlpm, 96.64 * 1000 / 60, 1e-6), '轉輸泵流量 = 目標（空調）水箱下游最大時需求 96.64 m³/h = 1,610.7 L/min', rch.pumps[0].Qlpm.toFixed(1));
+  ok(near(rch.pumps[0].Hs, tr('t_hvac').zTop - (-3), 1e-9), '轉輸泵靜揚程 = 目標水箱頂水位 − 吸水水箱最低水位（平鋪式）', rch.pumps[0].Hs);
+  ok(near(rch.storage.total, 4 * 0 + rch.tanks.filter(t => t.role !== 'fire').reduce((a, t) => a + t.vins, 0), 1e-9) && near(rch.storage.fire, 500, 1e-9), '儲水合計不含消防；消防 500 m³ 另計');
+  ok(rch.tanks.every(t => t.n >= 1), '每個水箱至少一顆');
+  const many = E.run(Object.assign(clone(base), { tanks: [TK({ dims: D5 })] }));
+  ok(many.checks.some(c => c.level === 'warn' && /顆數過多/.test(c.msg)), '5×5×2 → 113 顆：提示「顆數過多」');
+  // 單顆容量上限（預設不設；設了才檢查）
+  ok(!many.checks.some(c => /單顆上限/.test(c.msg)), '單顆容量上限預設不設 → 不檢查');
+  const mx = E.run(Object.assign(clone(base), { over: { designMargin: 1.0, perCapLpd: 100, maxCellVolume: 1000 }, tanks: [TK({ dims: D20 })] }));
+  ok(mx.checks.some(c => /單顆上限/.test(c.msg)), '設定 maxCellVolume = 1,000 → 1,400 m³ 單顆超過上限而警示');
+  // 固定顆數模式：回報每顆需要多大
+  const fx = E.run(Object.assign(clone(base), { tanks: [TK({ cellsMode: 'fixed', fixedCells: 4, dims: undefined })] })).tanks[0];
+  ok(fx.n === 4 && near(fx.vu, Math.ceil(4202 / 4), 1e-9) && fx.sqSide > 0, '指定 4 顆：每顆需 1,051 m³，並回報正方形邊長建議', `${fx.vu} m³, 邊長 ${fx.sqSide.toFixed(1)} m`);
+  // 舊版（無 tanks）輸入 → 等價三水池；與明確傳入 legacyTanks 的結果相同（附錄 B）
+  const old = Object.assign(clone(LQ), { fireVolume: 300 });
+  const ro = E.run(old), rl = E.run(Object.assign(clone(old), { tanks: E.legacyTanks(old) }));
+  ok(ro.tanks.length === 3 && ['domestic', 'hvac', 'fire'].every(rn => ro.tanks.some(t => t.role === rn)), '舊輸入（無 tanks）轉為 生活／空調／消防 三個水池');
+  ok(['cell_dom', 'cell_cool', 'st_total'].every(id => near(v(ro, id), v(rl, id), 1e-9)) && near(ro.storage.fire, 300, 1e-9), '舊輸入與明確 legacyTanks 結果相同；舊 fireVolume 帶入消防水池 300 m³', `cell_dom ${v(ro, 'cell_dom')}、cell_cool ${v(ro, 'cell_cool')}、st_total ${v(ro, 'st_total')}`);
+  ok(ro.trace.filter(st => st.alias).length >= 2 && !O.xlsxFromResult(ro, {}).toString('latin1').includes('舊版代號'), '舊版代號步驟標為 alias，不輸出到 Excel');
+  // 試算表重算需要的 xl：每個 step 都有 src 與（非 text 類）xl
+  const noXl = rch.trace.filter(st => st.kind === 'step' && (!st.src || !st.src.length || (st.xl === undefined || st.xl === null)));
+  ok(noXl.length === 0, '每個計算步驟都有出處與 Excel 公式', noXl.map(st => st.id).join(','));
+}
+
 sec('9 匯出檔');
 const xl = O.xlsxFromResult(r, { project: 't' }), dx = O.docxFromResult(r, { project: 't' });
 ok(xl[0] === 0x50 && xl[1] === 0x4b && dx[0] === 0x50, 'xlsx/docx 皆為 ZIP（PK 標頭）');
